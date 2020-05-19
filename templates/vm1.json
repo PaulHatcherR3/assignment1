@@ -1,0 +1,72 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "virtualMachines_PaulHatcher_name": {
+            "defaultValue": "PaulHatcher-VM",
+            "type": "String"
+        },
+        "networkInterfaces_paulhatcher_2230_externalid": {
+            "defaultValue": "/subscriptions/6a48d5c5-aa5b-4b7b-b24c-79d94998a316/resourceGroups/2020-05-new-joiners/providers/Microsoft.Network/networkInterfaces/paulhatcher-2230",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "name": "[parameters('virtualMachines_PaulHatcher_name')]",
+            "location": "uksouth",
+            "tags": {
+                "Owner": "Paul Hatcher"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_B2s"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "osType": "Linux",
+                        "name": "[concat(parameters('virtualMachines_PaulHatcher_name'), '_OsDisk_1_742cd1c25ddb45a7a78af967d56201d8')]",
+                        "createOption": "FromImage",
+                        "caching": "ReadWrite"
+                    },
+                    "dataDisks": []
+                },
+                "osProfile": {
+                    "computerName": "[parameters('virtualMachines_PaulHatcher_name')]",
+                    "adminUsername": "paulhatcher",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": true,
+                        "ssh": {
+                            "publicKeys": [
+                                {
+                                    "path": "/home/paulhatcher/.ssh/authorized_keys",
+                                    "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC8yCssdwmC08bqRNTCEFoK576amLaQP1uu4o3Gp72VYiSnhp54nOq0D0ji/P1ODdr8W+vp3M4skiIyNDV34ylMQygSvhiJSxLgzW8Ii26STda6P8xfSzSjrGpLTCk/BfdOJZjbU9lMa3zxisOIDxOK0FZcrEpd5VOe8YKTQHweXtJrBBQjOGSTvz9FHd2mVr2WtZJz5fSbp8FA5SjraY5jj1TMKS+CLbYa4gmi4MIepiUiYQmQV0Mh4FSD4zD17jFZAF1RFLmWd19K7JU7yF3JzFB/BEq7Pl+jgoZS0sm/kRAGuBh/MZrnqrvSYEwPPoSr1WxN9cF/dKUQxn2w1qPg/4gfohkWbe9XUTBelE6yJWBlSlEZK3GIkgiK5s03JAq159EUtjuBZvgTUxgLcsfCrdQk1efosEwKB4d28rypzc6MMlm/vfGY7apoiTn4ADYvVIiF35OMwsin5Q6ci+aus9cpymfTyp/Su2OEsqNZZIYkzuM4xBQxSdSS42dc8kE= paulhatcher"
+                                }
+                            ]
+                        },
+                        "provisionVMAgent": true
+                    },
+                    "secrets": [],
+                    "allowExtensionOperations": true,
+                    "requireGuestProvisionSignal": true
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[parameters('networkInterfaces_paulhatcher_2230_externalid')]"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
