@@ -1,8 +1,8 @@
 package com.assessment1.flow;
 
 import co.paralleluniverse.fibers.Suspendable;
-import com.assessment1.contract.IOUContract;
-import com.assessment1.state.IOUState;
+import com.assessment1.contract.TPMContract;
+import com.assessment1.state.TPMState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import net.corda.core.contracts.Command;
@@ -29,12 +29,11 @@ import static net.corda.core.contracts.ContractsDSL.requireThat;
  *
  * All methods called within the [FlowLogic] sub-class need to be annotated with the @Suspendable annotation.
  */
-public class ExampleFlow {
+public class TPMFlowCreate {
     @InitiatingFlow
     @StartableByRPC
     public static class Initiator extends FlowLogic<SignedTransaction> {
 
-        private final int iouValue;
         private final Party otherParty;
 
         private final Step GENERATING_TRANSACTION = new Step("Generating transaction based on new IOU.");
@@ -64,8 +63,7 @@ public class ExampleFlow {
                 FINALISING_TRANSACTION
         );
 
-        public Initiator(int iouValue, Party otherParty) {
-            this.iouValue = iouValue;
+        public Initiator(Party otherParty) {
             this.otherParty = otherParty;
         }
 
@@ -83,16 +81,19 @@ public class ExampleFlow {
             // Obtain a reference to the notary we want to use.
             final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
 
+            // This is for board creation, start of a game.
+
             // Stage 1.
             progressTracker.setCurrentStep(GENERATING_TRANSACTION);
-            // Generate an unsigned transaction.
+
+            // Generate an unsigned transaction with an initial board state.
             Party me = getOurIdentity();
-            IOUState iouState = new IOUState(iouValue, me, otherParty, new UniqueIdentifier());
-            final Command<IOUContract.Commands.Create> txCommand = new Command<>(
-                    new IOUContract.Commands.Create(),
-                    ImmutableList.of(iouState.getLender().getOwningKey(), iouState.getBorrower().getOwningKey()));
+            TPMState TPMState = new TPMState(me, otherParty);
+            final Command<TPMContract.Commands.Create> txCommand = new Command<>(
+                    new TPMContract.Commands.Create(),
+                    ImmutableList.of(TPMState.getPlayer1().getOwningKey(), TPMState.getPlayer2().getOwningKey()));
             final TransactionBuilder txBuilder = new TransactionBuilder(notary)
-                    .addOutputState(iouState, IOUContract.ID)
+                    .addOutputState(TPMState, TPMContract.ID)
                     .addCommand(txCommand);
 
             // Stage 2.
@@ -119,6 +120,7 @@ public class ExampleFlow {
         }
     }
 
+    // This is the receiving party side for the above.
     @InitiatedBy(Initiator.class)
     public static class Acceptor extends FlowLogic<SignedTransaction> {
 
@@ -131,6 +133,7 @@ public class ExampleFlow {
         @Suspendable
         @Override
         public SignedTransaction call() throws FlowException {
+
             class SignTxFlow extends SignTransactionFlow {
                 private SignTxFlow(FlowSession otherPartyFlow, ProgressTracker progressTracker) {
                     super(otherPartyFlow, progressTracker);
@@ -140,13 +143,15 @@ public class ExampleFlow {
                 protected void checkTransaction(SignedTransaction stx) {
                     requireThat(require -> {
                         ContractState output = stx.getTx().getOutputs().get(0).getData();
-                        require.using("This must be an IOU transaction.", output instanceof IOUState);
-                        IOUState iou = (IOUState) output;
-                        require.using("I won't accept IOUs with a value over 100.", iou.getValue() <= 100);
+                        require.using("This must be a board transaction.", output instanceof TPMState);
+                        // Any other constraints that are not covered in the contract for this party ??
+                        // TPMState iou = (TPMState) output;
+                        // require.using("I won't accept IOUs with a value over 100.", iou.getValue() <= 100);
                         return null;
                     });
                 }
             }
+
             final SignTxFlow signTxFlow = new SignTxFlow(otherPartySession, SignTransactionFlow.Companion.tracker());
             final SecureHash txId = subFlow(signTxFlow).getId();
 
