@@ -66,13 +66,13 @@ public class TPMContract implements Contract {
 
             requireThat(require -> {
                 // For move there should be one input, of the right type.
-                require.using("On move there should be one input state.", tx.getInputs().size() == 1);
+                require.using("Move should have one input state.", tx.getInputs().size() == 1);
                 final TPMState in  = tx.inputsOfType(TPMState.class).get(0);
                 final TPMState out = tx.outputsOfType(TPMState.class).get(0);
 
                 // Make sure that the proposed move is a valid one.
                 // This is interesting because the receiving flow should have taken the move and created the new state.
-                require.using("Proposed game move is invalid", in.checkMove(out));
+                require.using("Proposed move is invalid.", in.checkMove(out));
 
                 return null;
             });

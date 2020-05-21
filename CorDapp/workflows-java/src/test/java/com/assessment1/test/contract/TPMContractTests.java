@@ -18,7 +18,7 @@ public class TPMContractTests {
     static private final TestIdentity miniCorp = new TestIdentity(new CordaX500Name("MiniCorp", "London", "GB"));
 
     @Test
-    public void transactionMustIncludeCreateCommand() {
+    public void transactionMustIncludeCommand() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
                 tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty()));
@@ -30,15 +30,15 @@ public class TPMContractTests {
             return null;
         }));
     }
-/*
+
     @Test
     public void transactionMustHaveNoInputs() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.input(TPMContract.ID, new TPMState(iouValue, miniCorp.getParty(), megaCorp.getParty(), new UniqueIdentifier()));
-                tx.output(TPMContract.ID, new TPMState(iouValue, miniCorp.getParty(), megaCorp.getParty(), new UniqueIdentifier()));
+                tx.input(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty()));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty()));
                 tx.command(ImmutableList.of(megaCorp.getPublicKey(), miniCorp.getPublicKey()), new TPMContract.Commands.Create());
-                tx.failsWith("No inputs should be consumed when issuing an IOU.");
+                tx.failsWith("On creation there should be no input state.");
                 return null;
             });
             return null;
@@ -49,8 +49,8 @@ public class TPMContractTests {
     public void transactionMustHaveOneOutput() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.output(TPMContract.ID, new TPMState(iouValue, miniCorp.getParty(), megaCorp.getParty(), new UniqueIdentifier()));
-                tx.output(TPMContract.ID, new TPMState(iouValue, miniCorp.getParty(), megaCorp.getParty(), new UniqueIdentifier()));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty()));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty()));
                 tx.command(ImmutableList.of(megaCorp.getPublicKey(), miniCorp.getPublicKey()), new TPMContract.Commands.Create());
                 tx.failsWith("Only one output state should be created.");
                 return null;
@@ -60,12 +60,12 @@ public class TPMContractTests {
     }
 
     @Test
-    public void lenderMustSignTransaction() {
+    public void mustSignTransaction1() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.output(TPMContract.ID, new TPMState(iouValue, miniCorp.getParty(), megaCorp.getParty(), new UniqueIdentifier()));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty()));
                 tx.command(miniCorp.getPublicKey(), new TPMContract.Commands.Create());
-                tx.failsWith("All of the participants must be signers.");
+                tx.failsWith("All of the players must be signers.");
                 return null;
             });
             return null;
@@ -73,12 +73,12 @@ public class TPMContractTests {
     }
 
     @Test
-    public void borrowerMustSignTransaction() {
+    public void mustSignTransaction2() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.output(TPMContract.ID, new TPMState(iouValue, miniCorp.getParty(), megaCorp.getParty(), new UniqueIdentifier()));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty()));
                 tx.command(megaCorp.getPublicKey(), new TPMContract.Commands.Create());
-                tx.failsWith("All of the participants must be signers.");
+                tx.failsWith("All of the players must be signers.");
                 return null;
             });
             return null;
@@ -86,19 +86,47 @@ public class TPMContractTests {
     }
 
     @Test
-    public void lenderIsNotBorrower() {
+    public void transactionSameParties() {
         final TestIdentity megaCorpDupe = new TestIdentity(megaCorp.getName(), megaCorp.getKeyPair());
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.output(TPMContract.ID, new TPMState(iouValue, megaCorp.getParty(), megaCorpDupe.getParty(), new UniqueIdentifier()));
+                tx.output(TPMContract.ID, new TPMState(megaCorp.getParty(), megaCorpDupe.getParty()));
                 tx.command(ImmutableList.of(megaCorp.getPublicKey(), miniCorp.getPublicKey()), new TPMContract.Commands.Create());
-                tx.failsWith("The lender and the borrower cannot be the same entity.");
+                tx.failsWith("The two players cannot be the same entity.");
                 return null;
             });
             return null;
         }));
     }
 
+    @Test
+    public void transactionMoveWithNoInput() {
+        ledger(ledgerServices, (ledger -> {
+            ledger.transaction(tx -> {
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty()));
+                tx.command(ImmutableList.of(megaCorp.getPublicKey(), miniCorp.getPublicKey()), new TPMContract.Commands.Move());
+                tx.failsWith("Move should have one input state.");
+                return null;
+            });
+            return null;
+        }));
+    }
+
+    @Test
+    public void transactionInvalidMove() {
+        ledger(ledgerServices, (ledger -> {
+            ledger.transaction(tx -> {
+                tx.input(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty()));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty()));
+                tx.command(ImmutableList.of(megaCorp.getPublicKey(), miniCorp.getPublicKey()), new TPMContract.Commands.Move());
+                tx.failsWith("Proposed move is invalid.");
+                return null;
+            });
+            return null;
+        }));
+    }
+
+/*
     @Test
     public void cannotCreateNegativeValueIOUs() {
         ledger(ledgerServices, (ledger -> {

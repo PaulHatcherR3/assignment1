@@ -2,7 +2,8 @@ package com.assessment1.state;
 
 import com.assessment1.contract.TPMContract;
 import net.corda.core.contracts.BelongsToContract;
-import net.corda.core.contracts.ContractState;
+import net.corda.core.contracts.LinearState;
+import net.corda.core.contracts.UniqueIdentifier;
 import net.corda.core.identity.AbstractParty;
 import net.corda.core.identity.Party;
 import net.corda.core.serialization.ConstructorForDeserialization;
@@ -17,7 +18,7 @@ import java.util.List;
  * A state must implement [ContractState] or one of its descendants.
  */
 @BelongsToContract(TPMContract.class)
-public class TPMState implements ContractState {
+public class TPMState implements LinearState {
 
     @CordaSerializable
     private enum Token {PLAYER1, PLAYER2};
@@ -27,6 +28,7 @@ public class TPMState implements ContractState {
     private final Party player1;
     private final Party player2;
     private final int moves;
+    private final UniqueIdentifier linearId;
 
     /**
      * @param player1Tokens Player1 Pieces off board.
@@ -41,7 +43,8 @@ public class TPMState implements ContractState {
                     Token[] board,
                     Party player1,
                     Party player2,
-                    int moves)
+                    int moves,
+                    UniqueIdentifier linearId)
     {
         this.player1Tokens = player1Tokens;
         this.player2Tokens = player2Tokens;
@@ -49,6 +52,7 @@ public class TPMState implements ContractState {
         this.player1 = player1;
         this.player2 = player2;
         this.moves = moves;
+        this.linearId = linearId;
     }
 
     /* Initialize a new board.
@@ -62,6 +66,7 @@ public class TPMState implements ContractState {
         this.player1 = player1;
         this.player2 = player2;
         this.moves = 0;
+        this.linearId = new UniqueIdentifier();
     }
 
     public int getPlayer1Tokens() {
@@ -110,7 +115,7 @@ public class TPMState implements ContractState {
             // We're in play.
         }
 
-        return true;
+        return false;
     }
 
     // We also need to transition a state given a move. The move specifies, source, dest and player.
@@ -120,7 +125,7 @@ public class TPMState implements ContractState {
         return true;
     }
 
-    // @Override public UniqueIdentifier getLinearId() { return linearId; }
+    @Override public UniqueIdentifier getLinearId() { return linearId; }
     @Override public List<AbstractParty> getParticipants() {
         return Arrays.asList(player1, player2);
     }
