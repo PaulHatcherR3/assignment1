@@ -8,9 +8,14 @@ import net.corda.core.identity.AbstractParty;
 import net.corda.core.identity.Party;
 import net.corda.core.serialization.ConstructorForDeserialization;
 import net.corda.core.serialization.CordaSerializable;
+import org.slf4j.ILoggerFactory;
+
+import static net.corda.core.contracts.ContractsDSL.requireThat;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * The state object recording Three Person's Morris (TPM)
@@ -21,7 +26,8 @@ import java.util.List;
 public class TPMState implements LinearState {
 
     @CordaSerializable
-    private enum Token {PLAYER1, PLAYER2};
+    public enum Token {PLAYER1, PLAYER2};
+    private static final int BOARD_WIDTH=3;
     private final int player1Tokens;
     private final int player2Tokens;
     private final Token[] board;
@@ -59,14 +65,14 @@ public class TPMState implements LinearState {
      * @param player1 The player in the game, they made the first move.
      * @param player2 The second player in the game.
      */
-    public TPMState(Party player1, Party player2) {
-        this.player1Tokens = 3;
-        this.player2Tokens = 3;
-        this.board = new Token[3*3];
+    public TPMState(Party player1, Party player2, String gameId) {
+        this.player1Tokens = BOARD_WIDTH;
+        this.player2Tokens = BOARD_WIDTH;
+        this.board = new Token[BOARD_WIDTH*BOARD_WIDTH];
         this.player1 = player1;
         this.player2 = player2;
         this.moves = 0;
-        this.linearId = new UniqueIdentifier();
+        this.linearId = new UniqueIdentifier(gameId);
     }
 
     public int getPlayer1Tokens() {
@@ -93,39 +99,213 @@ public class TPMState implements LinearState {
         return moves;
     }
 
-    // Make sure there are the required number of tokens in play and they are in valid positions.
-    public boolean checkInvariants() {
-        // Sum of tokens in counters and on board should equal six.
-        int p1pt = player1Tokens;
-        int p2pt = player2Tokens;
-        for (Token t : board) {
-            if (null == t)               {;}
-            else if (Token.PLAYER1 == t) {++p1pt;}
-            else if (Token.PLAYER2 == t) {++p2pt;}
-        }
-        return (3 == p1pt) && (3 == p2pt);
+    // Encode a board address into an integer, used to check for winning line.
+    private static int encodeAddress(int c, int a, int p) {
+        return c | (a << (8*p));
     }
 
-    // Make sure that new state is valid from this current state. Shouldn't this have been checked below?
-    public boolean checkMove(TPMState newState) {
-        // If there are pieces to play then in initial placement phase.
-        if ((0 != player1Tokens) || (0 != player1Tokens)) {
+    // Winning line addresses encoded into a single integer, order is important, same as board scanning order.
+    private static HashSet<Integer> winningAddresses = new HashSet<>(Arrays.asList(
+        encodeAddress(encodeAddress(encodeAddress(0, 0, 0), 1, 1), 2,2),
+        encodeAddress(encodeAddress(encodeAddress(0, 0, 0), 4, 1), 8,2),
+        encodeAddress(encodeAddress(encodeAddress(0, 0, 0), 3, 1), 6,2),
+        encodeAddress(encodeAddress(encodeAddress(0, 1, 0), 4, 1), 7,2),
+        encodeAddress(encodeAddress(encodeAddress(0, 2, 0), 5, 1), 8,2),
+        encodeAddress(encodeAddress(encodeAddress(0, 2, 0), 4, 1), 6,2),
+        encodeAddress(encodeAddress(encodeAddress(0, 3, 0), 4, 1), 5,2),
+        encodeAddress(encodeAddress(encodeAddress(0, 4, 0), 5, 1), 6,2)
+    ));
 
-        } else {
-            // We're in play.
+    // Return true if the game is over, there is a completed line.
+    private boolean gameOver(Token pt) {
+        int a = 0;
+        int ii = 0;
+        for (int i=0;i<board.length;++i) {
+            if (pt.equals(board[i])) {
+                a = encodeAddress(a, i, ii++);
+            }
         }
+        return winningAddresses.contains(a);
+    }
 
-        return false;
+    public boolean gameOver() {
+        return gameOver(Token.PLAYER1) || gameOver(Token.PLAYER2);
+    }
+
+    // Legal moves encoded as src -> dst.
+    private static HashSet<Integer> legalMoves = new HashSet<>(Arrays.asList(
+            encodeAddress(encodeAddress(0, 0, 0), 1, 1),
+            encodeAddress(encodeAddress(0, 1, 0), 0, 1),
+            encodeAddress(encodeAddress(0, 0, 0), 4, 1),
+            encodeAddress(encodeAddress(0, 4, 0), 0, 1),
+            encodeAddress(encodeAddress(0, 0, 0), 3, 1),
+            encodeAddress(encodeAddress(0, 3, 0), 0, 1),
+            encodeAddress(encodeAddress(0, 1, 0), 2, 1),
+            encodeAddress(encodeAddress(0, 2, 0), 1, 1),
+            encodeAddress(encodeAddress(0, 1, 0), 4, 1),
+            encodeAddress(encodeAddress(0, 4, 0), 1, 1),
+            encodeAddress(encodeAddress(0, 2, 0), 4, 1),
+            encodeAddress(encodeAddress(0, 4, 0), 2, 1),
+            encodeAddress(encodeAddress(0, 2, 0), 5, 1),
+            encodeAddress(encodeAddress(0, 5, 0), 2, 1),
+            encodeAddress(encodeAddress(0, 3, 0), 4, 1),
+            encodeAddress(encodeAddress(0, 4, 0), 3, 1),
+            encodeAddress(encodeAddress(0, 3, 0), 6, 1),
+            encodeAddress(encodeAddress(0, 6, 0), 3, 1),
+            encodeAddress(encodeAddress(0, 4, 0), 5, 1),
+            encodeAddress(encodeAddress(0, 5, 0), 4, 1),
+            encodeAddress(encodeAddress(0, 4, 0), 6, 1),
+            encodeAddress(encodeAddress(0, 6, 0), 4, 1),
+            encodeAddress(encodeAddress(0, 4, 0), 7, 1),
+            encodeAddress(encodeAddress(0, 7, 0), 4, 1),
+            encodeAddress(encodeAddress(0, 4, 0), 8, 1),
+            encodeAddress(encodeAddress(0, 8, 0), 4, 1),
+            encodeAddress(encodeAddress(0, 5, 0), 8, 1),
+            encodeAddress(encodeAddress(0, 8, 0), 5, 1),
+            encodeAddress(encodeAddress(0, 6, 0), 7, 1),
+            encodeAddress(encodeAddress(0, 7, 0), 6, 1),
+            encodeAddress(encodeAddress(0, 7, 0), 8, 1),
+            encodeAddress(encodeAddress(0, 8, 0), 7, 1)
+    ));
+
+    private boolean legalMove(int src, int dst) {
+        return legalMoves.contains(encodeAddress(encodeAddress(0, src, 0), dst, 1));
+    }
+
+    // Make sure there are the required number of tokens in play and they are in valid positions.
+    public void checkInvariants() {
+        requireThat(require -> {
+
+            // Sum of tokens in counters and on board should equal BOARD_WIDTH for each player.
+            int p1pt = getPlayer1Tokens();
+            int p2pt = getPlayer2Tokens();
+            for (Token t : getBoard()) {
+                if (null == t) {
+                    ;
+                } else if (Token.PLAYER1 == t) {
+                    ++p1pt;
+                } else if (Token.PLAYER2 == t) {
+                    ++p2pt;
+                }
+            }
+            require.using("Expected 3 tokens in play for player1", BOARD_WIDTH == p1pt);
+            require.using("Expected 3 tokens in play for player2", BOARD_WIDTH == p2pt);
+            return null;
+        });
+    }
+
+    // Make sure that new state is valid from this current state.
+    // Used in the contract to check move is valid. I think this is a better place to code this.
+    // It is invariant to the contract, it's the rules of the game, which form a _part_ of the contract.
+    public void checkMove(TPMState stateNew) {
+
+        requireThat(require -> {
+            // Make sure that the new state is the same game, must have same Id.
+            require.using("Next state is from a different game", getLinearId().equals(stateNew.getLinearId()));
+            require.using("Moves are not contiguous", ((getMoves() + 1) == stateNew.getMoves()));
+            require.using("Game is over", !gameOver());
+
+            // Work out what has changed on the board, should be one move onto or move on the board.
+            Token srcToken = null;
+            int srcAddress = -1;
+            Token dstToken = null;
+            int dstAddress = -1;
+
+            for (int i=0; i<getBoard().length; ++i) {
+                Token srcTokenTmp = getBoard()[i];
+                Token dstTokenTmp = stateNew.getBoard()[i];
+                if (Objects.equals(srcTokenTmp, dstTokenTmp)) {
+                    // Same objects on board at same address, nothing has changed.
+                    ;
+                }
+                else if (null == srcTokenTmp) {
+                    // We've found a move to. Should always find one.
+                    require.using("Only one token move to allowed", null == dstToken);
+                    dstToken = dstTokenTmp;
+                    dstAddress = i;
+                }
+                else if (null == dstTokenTmp) {
+                    // We've found a move from. Should find at most one.
+                    require.using("Only one token move from allowed", null == srcToken);
+                    srcToken = srcTokenTmp;
+                    srcAddress = i;
+                } else {
+                    // Only end up here is token has been flipped.
+                    require.using("Tokens have been swapped", false);
+                }
+            }
+
+            // Must have moved something.
+            require.using("No destination move found", null != dstToken);
+
+            // Make sure that the destination token is for the correct player.
+            require.using("Expected Player2 to make move", (Token.PLAYER2 == dstToken) || ((Token.PLAYER1 == dstToken) && (0 == (getMoves()%2))));
+            require.using("Expected Player1 to make move", (Token.PLAYER1 == dstToken) || ((Token.PLAYER2 == dstToken) && (0 != (getMoves()%2))));
+
+            // If there are pieces to play then in initial placement phase.
+            if ((0 != getPlayer1Tokens()) || (0 != getPlayer2Tokens())) {
+
+                // Make sure boards are not identical.
+                require.using("Token moved during initial phase", null == srcToken);
+
+                // Make sure that the found token was taken from the correct pool.
+                require.using("Player2 token mismatch",  (Token.PLAYER2 == dstToken) || ((Token.PLAYER1 == dstToken) && ((getPlayer1Tokens()-1) == stateNew.getPlayer1Tokens())));
+                require.using("Player1 token mismatch",  (Token.PLAYER1 == dstToken) || ((Token.PLAYER2 == dstToken) && ((getPlayer2Tokens()-1) == stateNew.getPlayer2Tokens())));
+
+            } else {
+                // Something must have moved.
+                require.using("No source token was found during play", null != srcToken);
+
+                // Make sure that the tokens are the same.
+                require.using("Tokens must be the same player", srcToken.equals(dstToken));
+
+                // Check for a valid move on the board.
+                require.using("", legalMove(srcAddress, dstAddress));
+            }
+            return null;
+        });
     }
 
     // We also need to transition a state given a move. The move specifies, source, dest and player.
-    public boolean move(int src, int dst, Party player) {
-        // player1 always goes first, so should be an even move.
+    public TPMState move(int src, int dst) {
 
-        return true;
+        // player1 always goes first, so should be an even move.
+        // We' don't check much else here as any problems should be caught above when checking the contract.
+        Token t = null;
+        int player1TokensNew = getPlayer1Tokens();
+        int player2TokensNew = getPlayer2Tokens();
+        if (0 == (getMoves() % 2)) {
+            t = Token.PLAYER1;
+            if (player1TokensNew > 0) {
+                player1TokensNew--;
+            }
+        } else {
+            t = Token.PLAYER2;
+            if (player2TokensNew > 0) {
+                player2TokensNew--;
+            }
+        }
+
+        // This is interesting, we're creating a new board and then copying elements.
+        Token[] boardOld = getBoard();
+        Token[] boardNew = new Token[boardOld.length];
+        for (int i=0; i<boardOld.length; ++i) {
+            if (i == src) {
+                boardNew[i] = null;
+            } else if (i == dst) {
+                boardNew[i] = t;
+            } else {
+                boardNew[i] = boardOld[i];
+            }
+        }
+
+        return new TPMState(player1TokensNew,player2TokensNew,boardNew,getPlayer1(),getPlayer2(),getMoves()+1,getLinearId());
     }
 
-    @Override public UniqueIdentifier getLinearId() { return linearId; }
+    @Override public UniqueIdentifier getLinearId() {
+        return linearId;
+    }
+
     @Override public List<AbstractParty> getParticipants() {
         return Arrays.asList(player1, player2);
     }

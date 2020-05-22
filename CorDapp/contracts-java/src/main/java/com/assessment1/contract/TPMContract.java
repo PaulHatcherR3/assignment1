@@ -45,8 +45,8 @@ public class TPMContract implements Contract {
             require.using("All of the players must be signers.",
                     command.getSigners().containsAll(out.getParticipants().stream().map(AbstractParty::getOwningKey).collect(Collectors.toList())));
 
-            // Game specific invariants on output only.
-            require.using("The proposed game state must be valid.", out.checkInvariants());
+            // Game specific invariants on output only. Will raise exception on failure.
+            out.checkInvariants();
 
             return null;
         });
@@ -71,8 +71,8 @@ public class TPMContract implements Contract {
                 final TPMState out = tx.outputsOfType(TPMState.class).get(0);
 
                 // Make sure that the proposed move is a valid one.
-                // This is interesting because the receiving flow should have taken the move and created the new state.
-                require.using("Proposed move is invalid.", in.checkMove(out));
+                // This method will throw exceptions giving details of the move violation.
+                in.checkMove(out);
 
                 return null;
             });

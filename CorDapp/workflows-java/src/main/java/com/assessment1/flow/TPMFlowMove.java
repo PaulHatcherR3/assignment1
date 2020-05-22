@@ -7,46 +7,48 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import net.corda.core.contracts.Command;
 import net.corda.core.contracts.ContractState;
+import net.corda.core.contracts.StateAndRef;
 import net.corda.core.contracts.UniqueIdentifier;
 import net.corda.core.crypto.SecureHash;
 import net.corda.core.flows.*;
 import net.corda.core.identity.Party;
+import net.corda.core.node.services.Vault;
+import net.corda.core.node.services.VaultService;
+import net.corda.core.node.services.vault.QueryCriteria;
 import net.corda.core.transactions.SignedTransaction;
 import net.corda.core.transactions.TransactionBuilder;
 import net.corda.core.utilities.ProgressTracker;
-import net.corda.core.utilities.ProgressTracker.Step;
+
+import java.util.List;
 
 import static net.corda.core.contracts.ContractsDSL.requireThat;
 
 /**
- * This flow allows two parties (the [Initiator] and the [Acceptor]) to come to an agreement about the IOU encapsulated
- * within an [IOUState].
- *
- * In our simple example, the [Acceptor] always accepts a valid IOU.
- *
- * These flows have deliberately been implemented by using only the call() method for ease of understanding. In
- * practice we would recommend splitting up the various stages of the flow into sub-routines.
+ * Flow for TPM to perform a move on the TPMState object.
  *
  * All methods called within the [FlowLogic] sub-class need to be annotated with the @Suspendable annotation.
  */
-public class TPMFlowCreate {
+public class TPMFlowMove {
+
     @InitiatingFlow
     @StartableByRPC
     public static class Initiator extends FlowLogic<SignedTransaction> {
 
         private final Party otherParty;
         private final String gameId;
+        private final int src;
+        private final int dst;
 
-        private final Step GENERATING_TRANSACTION = new Step("Generating transaction based on new IOU.");
-        private final Step VERIFYING_TRANSACTION = new Step("Verifying contract constraints.");
-        private final Step SIGNING_TRANSACTION = new Step("Signing transaction with our private key.");
-        private final Step GATHERING_SIGS = new Step("Gathering the counterparty's signature.") {
+        private final ProgressTracker.Step GENERATING_TRANSACTION = new ProgressTracker.Step("Generating transaction based on new IOU.");
+        private final ProgressTracker.Step VERIFYING_TRANSACTION = new ProgressTracker.Step("Verifying contract constraints.");
+        private final ProgressTracker.Step SIGNING_TRANSACTION = new ProgressTracker.Step("Signing transaction with our private key.");
+        private final ProgressTracker.Step GATHERING_SIGS = new ProgressTracker.Step("Gathering the counterparty's signature.") {
             @Override
             public ProgressTracker childProgressTracker() {
                 return CollectSignaturesFlow.Companion.tracker();
             }
         };
-        private final Step FINALISING_TRANSACTION = new Step("Obtaining notary signature and recording transaction.") {
+        private final ProgressTracker.Step FINALISING_TRANSACTION = new ProgressTracker.Step("Obtaining notary signature and recording transaction.") {
             @Override
             public ProgressTracker childProgressTracker() {
                 return FinalityFlow.Companion.tracker();
@@ -64,9 +66,11 @@ public class TPMFlowCreate {
                 FINALISING_TRANSACTION
         );
 
-        public Initiator(Party otherParty, String gameId) {
+        public Initiator(Party otherParty, String gameId, int src, int dst) {
             this.otherParty = otherParty;
-            this.gameId=gameId;
+            this.gameId = gameId;
+            this.src = src;
+            this.dst = dst;
         }
 
         @Override
@@ -83,19 +87,47 @@ public class TPMFlowCreate {
             // Obtain a reference to the notary we want to use.
             final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
 
-            // This is for board creation, start of a game.
+            // This is for a move in the game. So we need as input the game UniqueId and a proposed move.
 
             // Stage 1.
             progressTracker.setCurrentStep(GENERATING_TRANSACTION);
 
-            // Generate an unsigned transaction with an initial board state.
+            // Fetch the current state from the vault. We query using the foreign key for the LinearState on the ledger.
             Party me = getOurIdentity();
-            TPMState state = new TPMState(me, otherParty, gameId);
-            final Command<TPMContract.Commands.Create> txCommand = new Command<>(
-                    new TPMContract.Commands.Create(),
+            QueryCriteria queryCriteria = new QueryCriteria.LinearStateQueryCriteria(ImmutableList.of(me, otherParty), null, ImmutableList.of(gameId));
+            List<StateAndRef<TPMState>> states = getServiceHub().getVaultService().queryBy(TPMState.class, queryCriteria).getStates();
+
+            // Should be one, should be same parties (we queried for!). Not sure if this is overkill. Could just test and then throw exception?
+            requireThat(require -> {
+                require.using("Failed to find game on ledger", states.size() != 0);
+                require.using("Should only be one game on ledger", states.size() == 1);
+                return null;
+            });
+
+            // Rehydrate current state from Vault.
+            TPMState state = states.get(0).getState().getData();
+
+            // Now make the move. stateNext will be null if move is invalid. Bit lame since no hint why on failure.
+            TPMState stateNew = state.move(src, dst);
+
+            // Sanity check game and players, but we queried on these, so should be correct.
+            requireThat(require -> {
+                require.using("GameId mismatch", state.getLinearId().getExternalId().equals(gameId));
+                require.using("Player1 mismatch", state.getPlayer1().equals(me));
+                require.using("Player2 mismatch", state.getPlayer2().equals(otherParty));
+                require.using("Move is invalid", null != stateNew);
+                return null;
+            });
+
+            // We have correct game on ledger, we've made a move, all good.
+            // This is interesting, what are we sending across here ?
+            // New state makes sense, it's the proposed outcome, but what about the input?
+            final Command<TPMContract.Commands.Move> txCommand = new Command<>(
+                    new TPMContract.Commands.Move(),
                     ImmutableList.of(state.getPlayer1().getOwningKey(), state.getPlayer2().getOwningKey()));
             final TransactionBuilder txBuilder = new TransactionBuilder(notary)
-                    .addOutputState(state, TPMContract.ID)
+                    .addInputState(states.get(0))
+                    .addOutputState(stateNew, TPMContract.ID)
                     .addCommand(txCommand);
 
             // Stage 2.
@@ -143,7 +175,10 @@ public class TPMFlowCreate {
 
                 @Override
                 protected void checkTransaction(SignedTransaction stx) {
+
+                    // Query local vault for the input state.
                     requireThat(require -> {
+                        // TODO : How can we validate the input here? Do we need to?
                         ContractState output = stx.getTx().getOutputs().get(0).getData();
                         require.using("This must be a board transaction.", output instanceof TPMState);
                         // Any other constraints that are not covered in the contract for this party ??

@@ -1,9 +1,11 @@
 package com.assessment1.test.flow;
 
 import com.assessment1.flow.TPMFlowCreate;
+import com.assessment1.state.TPMState;
 import com.google.common.collect.ImmutableList;
 import net.corda.core.concurrent.CordaFuture;
-import net.corda.core.contracts.TransactionVerificationException;
+import net.corda.core.contracts.*;
+import net.corda.core.node.services.vault.QueryCriteria;
 import net.corda.core.transactions.SignedTransaction;
 import net.corda.testing.node.MockNetwork;
 import net.corda.testing.node.MockNetworkParameters;
@@ -15,10 +17,14 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
+import java.util.List;
+import java.util.UUID;
+
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
-public class TPMFlowTests {
+public class TPMFlowCreateTests {
     private MockNetwork network;
     private StartedMockNode a;
     private StartedMockNode b;
@@ -44,22 +50,10 @@ public class TPMFlowTests {
 
     @Rule
     public final ExpectedException exception = ExpectedException.none();
-/*
-    @Test
-    public void flowRejectsInvalidIOUs() throws Exception {
-        // The IOUContract specifies that IOUs cannot have negative values.
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(-1, b.getInfo().getLegalIdentities().get(0));
-        CordaFuture<SignedTransaction> future = a.startFlow(flow);
-        network.runNetwork();
-
-        // The IOUContract specifies that IOUs cannot have negative values.
-        exception.expectCause(instanceOf(TransactionVerificationException.class));
-        future.get();
-    }
 
     @Test
     public void signedTransactionReturnedByTheFlowIsSignedByTheInitiator() throws Exception {
-        ExampleFlow.Initiator flow = new ExampleFlow.Initiator(1, b.getInfo().getLegalIdentities().get(0));
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 
@@ -69,7 +63,7 @@ public class TPMFlowTests {
 
     @Test
     public void signedTransactionReturnedByTheFlowIsSignedByTheAcceptor() throws Exception {
-        ExampleFlow.Initiator flow = new ExampleFlow.Initiator(1, b.getInfo().getLegalIdentities().get(0));
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 
@@ -79,7 +73,7 @@ public class TPMFlowTests {
 
     @Test
     public void flowRecordsATransactionInBothPartiesTransactionStorages() throws Exception {
-        ExampleFlow.Initiator flow = new ExampleFlow.Initiator(1, b.getInfo().getLegalIdentities().get(0));
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
         SignedTransaction signedTx = future.get();
@@ -91,9 +85,9 @@ public class TPMFlowTests {
     }
 
     @Test
-    public void recordedTransactionHasNoInputsAndASingleOutputTheInputIOU() throws Exception {
+    public void recordedTransactionHasNoInputsAndASingleOutput() throws Exception {
         Integer iouValue = 1;
-        ExampleFlow.Initiator flow = new ExampleFlow.Initiator(iouValue, b.getInfo().getLegalIdentities().get(0));
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
         SignedTransaction signedTx = future.get();
@@ -105,16 +99,22 @@ public class TPMFlowTests {
             assert (txOutputs.size() == 1);
 
             TPMState recordedState = (TPMState) txOutputs.get(0).getData();
-            assertEquals(recordedState.getValue(), iouValue);
-            assertEquals(recordedState.getLender(), a.getInfo().getLegalIdentities().get(0));
-            assertEquals(recordedState.getBorrower(), b.getInfo().getLegalIdentities().get(0));
+            assertEquals(3, recordedState.getPlayer1Tokens());
+            assertEquals(3, recordedState.getPlayer2Tokens());
+            assertEquals(0, recordedState.getMoves());
+            TPMState.Token board[] = recordedState.getBoard();
+            for (TPMState.Token t : board) {
+                assertNull(t);
+            }
+            assertEquals(recordedState.getPlayer1(), a.getInfo().getLegalIdentities().get(0));
+            assertEquals(recordedState.getPlayer2(), b.getInfo().getLegalIdentities().get(0));
         }
     }
 
     @Test
-    public void flowRecordsTheCorrectIOUInBothPartiesVaults() throws Exception {
+    public void flowRecordsTheCorrectStateInBothPartiesVaults() throws Exception {
         Integer iouValue = 1;
-        ExampleFlow.Initiator flow = new ExampleFlow.Initiator(1, b.getInfo().getLegalIdentities().get(0));
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
         future.get();
@@ -122,15 +122,21 @@ public class TPMFlowTests {
         // We check the recorded IOU in both vaults.
         for (StartedMockNode node : ImmutableList.of(a, b)) {
             node.transaction(() -> {
-                List<StateAndRef<TPMState>> ious = node.getServices().getVaultService().queryBy(TPMState.class).getStates();
-                assertEquals(1, ious.size());
-                TPMState recordedState = ious.get(0).getState().getData();
-                assertEquals(recordedState.getValue(), iouValue);
-                assertEquals(recordedState.getLender(), a.getInfo().getLegalIdentities().get(0));
-                assertEquals(recordedState.getBorrower(), b.getInfo().getLegalIdentities().get(0));
+                // QueryCriteria qc = new QueryCriteria.LinearStateQueryCriteria(ImmutableList.of(a,b), null, ImmutableList.of("chickenDinner"));
+                List<StateAndRef<TPMState>> states = node.getServices().getVaultService().queryBy(TPMState.class).getStates();
+                assertEquals(1, states.size());
+                TPMState recordedState = states.get(0).getState().getData();
+                assertEquals(3, recordedState.getPlayer1Tokens());
+                assertEquals(3, recordedState.getPlayer2Tokens());
+                assertEquals(0, recordedState.getMoves());
+                TPMState.Token board[] = recordedState.getBoard();
+                for (TPMState.Token t : board) {
+                    assertNull(t);
+                }
+                assertEquals(recordedState.getPlayer1(), a.getInfo().getLegalIdentities().get(0));
+                assertEquals(recordedState.getPlayer2(), b.getInfo().getLegalIdentities().get(0));
                 return null;
             });
         }
     }
-*/
 }
