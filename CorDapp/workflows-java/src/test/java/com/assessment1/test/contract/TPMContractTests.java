@@ -21,7 +21,7 @@ public class TPMContractTests {
     public void transactionMustIncludeCommand() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), ""));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(),null,""));
                 tx.fails();
                 tx.command(ImmutableList.of(megaCorp.getPublicKey(), miniCorp.getPublicKey()), new TPMContract.Commands.Create());
                 tx.verifies();
@@ -35,8 +35,8 @@ public class TPMContractTests {
     public void transactionMustHaveNoInputs() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.input(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), "123"));
-                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), "123"));
+                tx.input(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(),null, "123"));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), null,"123"));
                 tx.command(ImmutableList.of(megaCorp.getPublicKey(), miniCorp.getPublicKey()), new TPMContract.Commands.Create());
                 tx.failsWith("On creation there should be no input state.");
                 return null;
@@ -49,8 +49,8 @@ public class TPMContractTests {
     public void transactionMustHaveOneOutput() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), "123"));
-                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), "123"));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), null,"123"));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), null,"123"));
                 tx.command(ImmutableList.of(megaCorp.getPublicKey(), miniCorp.getPublicKey()), new TPMContract.Commands.Create());
                 tx.failsWith("Only one output state should be created.");
                 return null;
@@ -63,7 +63,7 @@ public class TPMContractTests {
     public void mustSignTransaction1() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), ""));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), null,""));
                 tx.command(miniCorp.getPublicKey(), new TPMContract.Commands.Create());
                 tx.failsWith("All of the players must be signers.");
                 return null;
@@ -76,7 +76,7 @@ public class TPMContractTests {
     public void mustSignTransaction2() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), ""));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), null,""));
                 tx.command(megaCorp.getPublicKey(), new TPMContract.Commands.Create());
                 tx.failsWith("All of the players must be signers.");
                 return null;
@@ -90,7 +90,7 @@ public class TPMContractTests {
         final TestIdentity megaCorpDupe = new TestIdentity(megaCorp.getName(), megaCorp.getKeyPair());
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.output(TPMContract.ID, new TPMState(megaCorp.getParty(), megaCorpDupe.getParty(), ""));
+                tx.output(TPMContract.ID, new TPMState(megaCorp.getParty(), megaCorpDupe.getParty(), null,""));
                 tx.command(ImmutableList.of(megaCorp.getPublicKey(), miniCorp.getPublicKey()), new TPMContract.Commands.Create());
                 tx.failsWith("The two players cannot be the same entity.");
                 return null;
@@ -103,7 +103,7 @@ public class TPMContractTests {
     public void transactionMoveWithNoInput() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), ""));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), null,""));
                 tx.command(ImmutableList.of(megaCorp.getPublicKey(), miniCorp.getPublicKey()), new TPMContract.Commands.Move());
                 tx.failsWith("Move should have one input state.");
                 return null;
@@ -116,8 +116,8 @@ public class TPMContractTests {
     public void transactionInvalidMoveState() {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
-                tx.input(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), "123"));
-                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), "123"));
+                tx.input(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), null,"123"));
+                tx.output(TPMContract.ID, new TPMState(miniCorp.getParty(), megaCorp.getParty(), null,"123"));
                 tx.command(ImmutableList.of(megaCorp.getPublicKey(), miniCorp.getPublicKey()), new TPMContract.Commands.Move());
                 tx.failsWith("Next state is from a different game");
                 return null;
@@ -131,10 +131,10 @@ public class TPMContractTests {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
                 // Make a couple of moves, one of which will break the invariant properties of board.
-                TPMState stateOld = new TPMState(miniCorp.getParty(), megaCorp.getParty(), "123");
-                TPMState stateNxt = stateOld.move(miniCorp.getParty(),1,2);
+                TPMState stateOld = new TPMState(miniCorp.getParty(), megaCorp.getParty(), null,"123");
+                TPMState stateNxt = stateOld.move(miniCorp.getParty(), null,1,2);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(megaCorp.getParty(),2,2);
+                stateNxt = stateOld.move(megaCorp.getParty(), null,2,2);
 
                 tx.input(TPMContract.ID, stateOld);
                 tx.output(TPMContract.ID, stateNxt);
@@ -151,18 +151,18 @@ public class TPMContractTests {
         ledger(ledgerServices, (ledger -> {
             ledger.transaction(tx -> {
                 // Make a couple of moves, one of which will break the invariant properties of board.
-                TPMState stateOld = new TPMState(miniCorp.getParty(), megaCorp.getParty(), "123");
-                TPMState stateNxt = stateOld.move(miniCorp.getParty(),-1,1);
+                TPMState stateOld = new TPMState(miniCorp.getParty(), megaCorp.getParty(), null,"123");
+                TPMState stateNxt = stateOld.move(miniCorp.getParty(),null,-1,1);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(megaCorp.getParty(),-1,2);
+                stateNxt = stateOld.move(megaCorp.getParty(), null,-1,2);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(miniCorp.getParty(),-1,4);
+                stateNxt = stateOld.move(miniCorp.getParty(),null,-1,4);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(megaCorp.getParty(),-1,5);
+                stateNxt = stateOld.move(megaCorp.getParty(),null,-1,5);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(miniCorp.getParty(),-1,7);
+                stateNxt = stateOld.move(miniCorp.getParty(),null,-1,7);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(megaCorp.getParty(),-1,8);
+                stateNxt = stateOld.move(megaCorp.getParty(),null,-1,8);
 
                 tx.input(TPMContract.ID, stateOld);
                 tx.output(TPMContract.ID, stateNxt);

@@ -53,7 +53,7 @@ public class TPMFlowMoveTests {
     public final ExpectedException exception = ExpectedException.none();
 
     private void createBoard(String gameId) {
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), gameId);
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), null, gameId);
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
     }
@@ -63,7 +63,7 @@ public class TPMFlowMoveTests {
         createBoard("game123");
         createBoard("game124");
         createBoard("game126");
-        TPMFlowMove.Initiator flow = new TPMFlowMove.Initiator( "game123", -1, 1);
+        TPMFlowMove.Initiator flow = new TPMFlowMove.Initiator( "game123", null, -1, 1);
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 
@@ -75,7 +75,7 @@ public class TPMFlowMoveTests {
     public void signedTransactionReturnedByTheFlowIsSignedByTheAcceptor() throws Exception {
         createBoard("game2e");
         createBoard("game123");
-        TPMFlowMove.Initiator flow = new TPMFlowMove.Initiator("game123", 1, 2);
+        TPMFlowMove.Initiator flow = new TPMFlowMove.Initiator("game123", null,1, 2);
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 

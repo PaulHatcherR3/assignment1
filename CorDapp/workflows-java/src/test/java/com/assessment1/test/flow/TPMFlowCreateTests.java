@@ -53,7 +53,7 @@ public class TPMFlowCreateTests {
 
     @Test
     public void signedTransactionReturnedByTheFlowIsSignedByTheInitiator() throws Exception {
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), null,"123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 
@@ -63,7 +63,7 @@ public class TPMFlowCreateTests {
 
     @Test
     public void signedTransactionReturnedByTheFlowIsSignedByTheAcceptor() throws Exception {
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0),null,"123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 
@@ -73,7 +73,7 @@ public class TPMFlowCreateTests {
 
     @Test
     public void flowRecordsATransactionInBothPartiesTransactionStorages() throws Exception {
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), null,"123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
         SignedTransaction signedTx = future.get();
@@ -87,7 +87,7 @@ public class TPMFlowCreateTests {
     @Test
     public void recordedTransactionHasNoInputsAndASingleOutput() throws Exception {
         Integer iouValue = 1;
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), null,"123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
         SignedTransaction signedTx = future.get();
@@ -114,7 +114,7 @@ public class TPMFlowCreateTests {
     @Test
     public void flowRecordsTheCorrectStateInBothPartiesVaults() throws Exception {
         Integer iouValue = 1;
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), null,"123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
         future.get();
@@ -122,7 +122,6 @@ public class TPMFlowCreateTests {
         // We check the recorded IOU in both vaults.
         for (StartedMockNode node : ImmutableList.of(a, b)) {
             node.transaction(() -> {
-                // QueryCriteria qc = new QueryCriteria.LinearStateQueryCriteria(ImmutableList.of(a,b), null, ImmutableList.of("chickenDinner"));
                 List<StateAndRef<TPMState>> states = node.getServices().getVaultService().queryBy(TPMState.class).getStates();
                 assertEquals(1, states.size());
                 TPMState recordedState = states.get(0).getState().getData();

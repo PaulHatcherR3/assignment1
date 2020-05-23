@@ -35,8 +35,11 @@ public class TPMState implements LinearState {
     private final Party player1;
     private final Party player2;
     private final int moves;
-    public enum State {INITIAL, PLACEMENT, MOVING, FINISHED};
-    private State state;
+    @CordaSerializable
+    public enum GameStatus {INITIAL, PLACEMENT, MOVING, FINISHED};
+    private GameStatus gameStatus;
+    private final String gameStatusHint;
+    private final String moveHint;
     private final UniqueIdentifier linearId;
 
     /**
@@ -47,15 +50,21 @@ public class TPMState implements LinearState {
      * @param player1 The player in the game, they made the first move.
      * @param player2 The second player in the game.
      * @param moves The move counter, on issue this is set to 1.
-     * @param state The state of the game.
+     * @param gameStatus The game status.
+     * @param gameStatusHint Human readable class set string as a helpful hint.
+     * @param moveHint Free set string set by the move, maybe a popular local insult.
      */
     @ConstructorForDeserialization
-    public TPMState(int player1Tokens, int player2Tokens,
+    public TPMState(int player1Tokens,
+                    int player2Tokens,
                     Token[] board,
                     Party player,
                     Party player1,
                     Party player2,
                     int moves,
+                    GameStatus gameStatus,
+                    String gameStatusHint,
+                    String moveHint,
                     UniqueIdentifier linearId)
     {
         this.player1Tokens = Math.max( Math.min( player1Tokens, BOARD_WIDTH), 0);
@@ -65,20 +74,60 @@ public class TPMState implements LinearState {
         this.player1 = player1;
         this.player2 = player2;
         this.moves = moves;
+        this.gameStatus = gameStatus;
+        this.gameStatusHint = gameStatusHint;
+        this.moveHint = moveHint;
         this.linearId = linearId;
+    }
+
+    /*
+     * The constructor used when creating a new state for a move.
+     */
+    private TPMState(int player1Tokens,
+                    int player2Tokens,
+                    Token[] board,
+                    Party player,
+                    Party player1,
+                    Party player2,
+                    int moves,
+                    String moveHint,
+                    UniqueIdentifier linearId,
+                    int src,
+                    int dst) {
+        // Maybe call above constructor??
+        this.player1Tokens = Math.max( Math.min( player1Tokens, BOARD_WIDTH), 0);
+        this.player2Tokens = Math.max( Math.min( player2Tokens, BOARD_WIDTH), 0);
+        this.board = board;
+        this.player = player;
+        this.player1 = player1;
+        this.player2 = player2;
+        this.moves = moves;
+        this.moveHint = moveHint;
+        this.linearId = linearId;
+
+        // Easier to refer to player1 and player2 in hints at the moment.
+        String playerHint = player.equals(player1) ? "Player1" : (player.equals(player2) ? "Player2" : player.toString());
 
         // We work out the state from the above fields.
         // The state field stops clients implementing this logic repeatedly.
         if ((BOARD_WIDTH == player1Tokens) && (BOARD_WIDTH == player2Tokens)) {
-            this.state = State.INITIAL;
+            this.gameStatus = GameStatus.INITIAL;
+            this.gameStatusHint = "Initial";
         } else if ((0 == player1Tokens) && (0 == player2Tokens)) {
-            if (gameOver()) {
-                this.state = State.FINISHED;
+            if (gameOver(Token.PLAYER1)) {
+                this.gameStatus = gameStatus.FINISHED;
+                this.gameStatusHint = String.format("Player1 won in %d moves",moves);
+            }
+            else if (gameOver(Token.PLAYER2)) {
+                this.gameStatus = gameStatus.FINISHED;
+                this.gameStatusHint = String.format("Player2 won in %d moves",moves);
             } else {
-                this.state = State.MOVING;
+                this.gameStatus = gameStatus.MOVING;
+                this.gameStatusHint =String.format("%s moved from %d to %d", playerHint, src, dst);
             }
         } else {
-            this.state = State.PLACEMENT;
+            this.gameStatus = gameStatus.PLACEMENT;
+            this.gameStatusHint = String.format("%s placed at %d", playerHint, dst);
         }
     }
 
@@ -86,14 +135,16 @@ public class TPMState implements LinearState {
      * @param player1 The player in the game, they made the first move.
      * @param player2 The second player in the game.
      */
-    public TPMState(Party player1, Party player2, String gameId) {
+    public TPMState(Party player1, Party player2, String createHint, String gameId) {
         this.player1Tokens = BOARD_WIDTH;
         this.player2Tokens = BOARD_WIDTH;
         this.board = new Token[BOARD_WIDTH*BOARD_WIDTH];
         this.player = null;
         this.player1 = player1;
         this.player2 = player2;
-        this.state = State.INITIAL;
+        this.gameStatus = GameStatus.INITIAL;
+        this.gameStatusHint = "Initial";
+        this.moveHint = createHint;
         this.moves = 0;
         this.linearId = new UniqueIdentifier(gameId);
     }
@@ -120,7 +171,17 @@ public class TPMState implements LinearState {
         return player2;
     }
 
-    public State getState() { return state; }
+    public GameStatus getGameStatus() {
+        return gameStatus;
+    }
+
+    public String getGameStatusHint() {
+        return gameStatusHint;
+    }
+
+    public String getMoveHint() {
+        return moveHint;
+    }
 
     public int getMoves() {
         return moves;
@@ -303,7 +364,7 @@ public class TPMState implements LinearState {
     }
 
     // We also need to transition a state given a move. The move specifies, source, dest and player.
-    public TPMState move(Party player, int src, int dst) {
+    public TPMState move(Party player, String moveHint, int src, int dst) {
 
         // We don't check much else here as any problems should be caught above when checking the contract.
         Token t = null;
@@ -342,7 +403,9 @@ public class TPMState implements LinearState {
             getPlayer1(),
             getPlayer2(),
             getMoves()+1,
-            getLinearId()
+            moveHint,
+            getLinearId(),
+            src,dst
         );
     }
 

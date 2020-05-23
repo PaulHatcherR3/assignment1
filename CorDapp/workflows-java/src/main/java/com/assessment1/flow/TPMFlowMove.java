@@ -35,6 +35,7 @@ public class TPMFlowMove {
     public static class Initiator extends FlowLogic<SignedTransaction> {
 
         private final String gameId;
+        private final String moveHint;
         private final int src;
         private final int dst;
 
@@ -65,8 +66,9 @@ public class TPMFlowMove {
                 FINALISING_TRANSACTION
         );
 
-        public Initiator(String gameId, int src, int dst) {
+        public Initiator(String gameId,String moveHint, int src, int dst) {
             this.gameId = gameId;
+            this.moveHint = moveHint;
             this.src = src;
             this.dst = dst;
         }
@@ -106,7 +108,7 @@ public class TPMFlowMove {
             TPMState state = states.get(0).getState().getData();
 
             // Now make the move. stateNext will be null if move is invalid. Bit lame since no hint why on failure.
-            TPMState stateNew = state.move(me, src, dst);
+            TPMState stateNew = state.move(me, moveHint, src, dst);
 
             // Sanity check game and players, but we queried on these, so should be correct.
             requireThat(require -> {

@@ -35,6 +35,7 @@ public class TPMFlowCreate {
     public static class Initiator extends FlowLogic<SignedTransaction> {
 
         private final Party otherParty;
+        private final String createHint;
         private final String gameId;
 
         private final Step GENERATING_TRANSACTION = new Step("Generating transaction based on new IOU.");
@@ -64,8 +65,9 @@ public class TPMFlowCreate {
                 FINALISING_TRANSACTION
         );
 
-        public Initiator(Party otherParty, String gameId) {
+        public Initiator(Party otherParty, String createHint, String gameId) {
             this.otherParty = otherParty;
+            this.createHint = createHint;
             this.gameId=gameId;
         }
 
@@ -90,7 +92,7 @@ public class TPMFlowCreate {
 
             // Generate an unsigned transaction with an initial board state.
             Party me = getOurIdentity();
-            TPMState state = new TPMState(me, otherParty, gameId);
+            TPMState state = new TPMState(me, otherParty, createHint, gameId);
             final Command<TPMContract.Commands.Create> txCommand = new Command<>(
                     new TPMContract.Commands.Create(),
                     ImmutableList.of(state.getPlayer1().getOwningKey(), state.getPlayer2().getOwningKey()));
