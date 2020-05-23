@@ -31,34 +31,55 @@ public class TPMState implements LinearState {
     private final int player1Tokens;
     private final int player2Tokens;
     private final Token[] board;
+    private final Party player;
     private final Party player1;
     private final Party player2;
     private final int moves;
+    public enum State {INITIAL, PLACEMENT, MOVING, FINISHED};
+    private State state;
     private final UniqueIdentifier linearId;
 
     /**
      * @param player1Tokens Player1 Pieces off board.
      * @param player2Tokens Player2 Pieces off board.
      * @param board The state of the board in play. Board is fixed size single dimension.
+     * @param player The player who made the move to this state.
      * @param player1 The player in the game, they made the first move.
      * @param player2 The second player in the game.
      * @param moves The move counter, on issue this is set to 1.
+     * @param state The state of the game.
      */
     @ConstructorForDeserialization
     public TPMState(int player1Tokens, int player2Tokens,
                     Token[] board,
+                    Party player,
                     Party player1,
                     Party player2,
                     int moves,
                     UniqueIdentifier linearId)
     {
-        this.player1Tokens = player1Tokens;
-        this.player2Tokens = player2Tokens;
+        this.player1Tokens = Math.max( Math.min( player1Tokens, BOARD_WIDTH), 0);
+        this.player2Tokens = Math.max( Math.min( player2Tokens, BOARD_WIDTH), 0);
         this.board = board;
+        this.player = player;
         this.player1 = player1;
         this.player2 = player2;
         this.moves = moves;
         this.linearId = linearId;
+
+        // We work out the state from the above fields.
+        // The state field stops clients implementing this logic repeatedly.
+        if ((BOARD_WIDTH == player1Tokens) && (BOARD_WIDTH == player2Tokens)) {
+            this.state = State.INITIAL;
+        } else if ((0 == player1Tokens) && (0 == player2Tokens)) {
+            if (gameOver()) {
+                this.state = State.FINISHED;
+            } else {
+                this.state = State.MOVING;
+            }
+        } else {
+            this.state = State.PLACEMENT;
+        }
     }
 
     /* Initialize a new board.
@@ -69,8 +90,10 @@ public class TPMState implements LinearState {
         this.player1Tokens = BOARD_WIDTH;
         this.player2Tokens = BOARD_WIDTH;
         this.board = new Token[BOARD_WIDTH*BOARD_WIDTH];
+        this.player = null;
         this.player1 = player1;
         this.player2 = player2;
+        this.state = State.INITIAL;
         this.moves = 0;
         this.linearId = new UniqueIdentifier(gameId);
     }
@@ -87,6 +110,8 @@ public class TPMState implements LinearState {
         return board;
     }
 
+    public Party getPlayer() { return player; }
+
     public Party getPlayer1() {
         return player1;
     }
@@ -94,6 +119,8 @@ public class TPMState implements LinearState {
     public Party getPlayer2() {
         return player2;
     }
+
+    public State getState() { return state; }
 
     public int getMoves() {
         return moves;
@@ -176,6 +203,14 @@ public class TPMState implements LinearState {
     public void checkInvariants() {
         requireThat(require -> {
 
+            // Make sure that player that set state was supposed to.
+            // In checkMove we catch the case where player1 made the move but moved player2s token.
+            if (null != getPlayer()) {
+                // If move is odd then it was player1 that proposed the state, else player2.
+                require.using("Expected Player2 to make move", (getPlayer().equals(getPlayer1())) || ((getPlayer().equals(getPlayer2())) && (0 == (getMoves() % 2))));
+                require.using("Expected Player1 to make move", (getPlayer().equals(getPlayer2())) || ((getPlayer().equals(getPlayer1())) && (0 != (getMoves() % 2))));
+            }
+
             // Sum of tokens in counters and on board should equal BOARD_WIDTH for each player.
             int p1pt = getPlayer1Tokens();
             int p2pt = getPlayer2Tokens();
@@ -239,8 +274,8 @@ public class TPMState implements LinearState {
             require.using("No destination move found", null != dstToken);
 
             // Make sure that the destination token is for the correct player.
-            require.using("Expected Player2 to make move", (Token.PLAYER2 == dstToken) || ((Token.PLAYER1 == dstToken) && (0 == (getMoves()%2))));
-            require.using("Expected Player1 to make move", (Token.PLAYER1 == dstToken) || ((Token.PLAYER2 == dstToken) && (0 != (getMoves()%2))));
+            require.using("Expected Player2 to make move", (Token.PLAYER2 == dstToken) || (stateNew.getPlayer().equals(getPlayer1())));
+            require.using("Expected Player1 to make move", (Token.PLAYER1 == dstToken) || (stateNew.getPlayer().equals(getPlayer2())));
 
             // If there are pieces to play then in initial placement phase.
             if ((0 != getPlayer1Tokens()) || (0 != getPlayer2Tokens())) {
@@ -253,6 +288,7 @@ public class TPMState implements LinearState {
                 require.using("Player1 token mismatch",  (Token.PLAYER1 == dstToken) || ((Token.PLAYER2 == dstToken) && ((getPlayer2Tokens()-1) == stateNew.getPlayer2Tokens())));
 
             } else {
+
                 // Something must have moved.
                 require.using("No source token was found during play", null != srcToken);
 
@@ -260,26 +296,25 @@ public class TPMState implements LinearState {
                 require.using("Tokens must be the same player", srcToken.equals(dstToken));
 
                 // Check for a valid move on the board.
-                require.using("", legalMove(srcAddress, dstAddress));
+                require.using("Invalid move", legalMove(srcAddress, dstAddress));
             }
             return null;
         });
     }
 
     // We also need to transition a state given a move. The move specifies, source, dest and player.
-    public TPMState move(int src, int dst) {
+    public TPMState move(Party player, int src, int dst) {
 
-        // player1 always goes first, so should be an even move.
-        // We' don't check much else here as any problems should be caught above when checking the contract.
+        // We don't check much else here as any problems should be caught above when checking the contract.
         Token t = null;
         int player1TokensNew = getPlayer1Tokens();
         int player2TokensNew = getPlayer2Tokens();
-        if (0 == (getMoves() % 2)) {
+        if (getPlayer1().equals(player)) {
             t = Token.PLAYER1;
             if (player1TokensNew > 0) {
                 player1TokensNew--;
             }
-        } else {
+        } else if (getPlayer2().equals(player)) {
             t = Token.PLAYER2;
             if (player2TokensNew > 0) {
                 player2TokensNew--;
@@ -299,7 +334,16 @@ public class TPMState implements LinearState {
             }
         }
 
-        return new TPMState(player1TokensNew,player2TokensNew,boardNew,getPlayer1(),getPlayer2(),getMoves()+1,getLinearId());
+        return new TPMState(
+            player1TokensNew,
+            player2TokensNew,
+            boardNew,
+            player,
+            getPlayer1(),
+            getPlayer2(),
+            getMoves()+1,
+            getLinearId()
+        );
     }
 
     @Override public UniqueIdentifier getLinearId() {

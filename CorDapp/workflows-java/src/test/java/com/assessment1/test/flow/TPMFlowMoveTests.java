@@ -63,24 +63,26 @@ public class TPMFlowMoveTests {
         createBoard("game123");
         createBoard("game124");
         createBoard("game126");
-        TPMFlowMove.Initiator flow = new TPMFlowMove.Initiator(b.getInfo().getLegalIdentities().get(0), "game123", -1, 1);
+        TPMFlowMove.Initiator flow = new TPMFlowMove.Initiator( "game123", -1, 1);
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 
         SignedTransaction signedTx = future.get();
         signedTx.verifySignaturesExcept(b.getInfo().getLegalIdentities().get(0).getOwningKey());
     }
-/*
+
     @Test
     public void signedTransactionReturnedByTheFlowIsSignedByTheAcceptor() throws Exception {
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
+        createBoard("game2e");
+        createBoard("game123");
+        TPMFlowMove.Initiator flow = new TPMFlowMove.Initiator("game123", 1, 2);
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 
         SignedTransaction signedTx = future.get();
         signedTx.verifySignaturesExcept(a.getInfo().getLegalIdentities().get(0).getOwningKey());
     }
-
+/*
     @Test
     public void flowRecordsATransactionInBothPartiesTransactionStorages() throws Exception {
         TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");

@@ -132,9 +132,9 @@ public class TPMContractTests {
             ledger.transaction(tx -> {
                 // Make a couple of moves, one of which will break the invariant properties of board.
                 TPMState stateOld = new TPMState(miniCorp.getParty(), megaCorp.getParty(), "123");
-                TPMState stateNxt = stateOld.move(1,2);
+                TPMState stateNxt = stateOld.move(miniCorp.getParty(),1,2);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(2,2);
+                stateNxt = stateOld.move(megaCorp.getParty(),2,2);
 
                 tx.input(TPMContract.ID, stateOld);
                 tx.output(TPMContract.ID, stateNxt);
@@ -152,17 +152,17 @@ public class TPMContractTests {
             ledger.transaction(tx -> {
                 // Make a couple of moves, one of which will break the invariant properties of board.
                 TPMState stateOld = new TPMState(miniCorp.getParty(), megaCorp.getParty(), "123");
-                TPMState stateNxt = stateOld.move(-1,1);
+                TPMState stateNxt = stateOld.move(miniCorp.getParty(),-1,1);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(-1,2);
+                stateNxt = stateOld.move(megaCorp.getParty(),-1,2);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(-1,4);
+                stateNxt = stateOld.move(miniCorp.getParty(),-1,4);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(-1,5);
+                stateNxt = stateOld.move(megaCorp.getParty(),-1,5);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(-1,7);
+                stateNxt = stateOld.move(miniCorp.getParty(),-1,7);
                 stateOld = stateNxt;
-                stateNxt = stateOld.move(-1,8);
+                stateNxt = stateOld.move(megaCorp.getParty(),-1,8);
 
                 tx.input(TPMContract.ID, stateOld);
                 tx.output(TPMContract.ID, stateNxt);

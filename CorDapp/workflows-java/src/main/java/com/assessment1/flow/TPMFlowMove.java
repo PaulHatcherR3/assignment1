@@ -34,7 +34,6 @@ public class TPMFlowMove {
     @StartableByRPC
     public static class Initiator extends FlowLogic<SignedTransaction> {
 
-        private final Party otherParty;
         private final String gameId;
         private final int src;
         private final int dst;
@@ -66,8 +65,7 @@ public class TPMFlowMove {
                 FINALISING_TRANSACTION
         );
 
-        public Initiator(Party otherParty, String gameId, int src, int dst) {
-            this.otherParty = otherParty;
+        public Initiator(String gameId, int src, int dst) {
             this.gameId = gameId;
             this.src = src;
             this.dst = dst;
@@ -94,7 +92,7 @@ public class TPMFlowMove {
 
             // Fetch the current state from the vault. We query using the foreign key for the LinearState on the ledger.
             Party me = getOurIdentity();
-            QueryCriteria queryCriteria = new QueryCriteria.LinearStateQueryCriteria(ImmutableList.of(me, otherParty), null, ImmutableList.of(gameId));
+            QueryCriteria queryCriteria = new QueryCriteria.LinearStateQueryCriteria(null, null, ImmutableList.of(gameId));
             List<StateAndRef<TPMState>> states = getServiceHub().getVaultService().queryBy(TPMState.class, queryCriteria).getStates();
 
             // Should be one, should be same parties (we queried for!). Not sure if this is overkill. Could just test and then throw exception?
@@ -108,13 +106,12 @@ public class TPMFlowMove {
             TPMState state = states.get(0).getState().getData();
 
             // Now make the move. stateNext will be null if move is invalid. Bit lame since no hint why on failure.
-            TPMState stateNew = state.move(src, dst);
+            TPMState stateNew = state.move(me, src, dst);
 
             // Sanity check game and players, but we queried on these, so should be correct.
             requireThat(require -> {
                 require.using("GameId mismatch", state.getLinearId().getExternalId().equals(gameId));
-                require.using("Player1 mismatch", state.getPlayer1().equals(me));
-                require.using("Player2 mismatch", state.getPlayer2().equals(otherParty));
+                require.using("Node Party should be player1 or player2", state.getPlayer1().equals(me) || state.getPlayer2().equals(me));
                 require.using("Move is invalid", null != stateNew);
                 return null;
             });
@@ -142,8 +139,9 @@ public class TPMFlowMove {
 
             // Stage 4.
             progressTracker.setCurrentStep(GATHERING_SIGS);
+
             // Send the state to the counterparty, and receive it back with their signature.
-            FlowSession otherPartySession = initiateFlow(otherParty);
+            FlowSession otherPartySession = initiateFlow(state.getPlayer1().equals(me) ? state.getPlayer2() : state.getPlayer1());
             final SignedTransaction fullySignedTx = subFlow(
                     new CollectSignaturesFlow(partSignedTx, ImmutableSet.of(otherPartySession), CollectSignaturesFlow.Companion.tracker()));
 
