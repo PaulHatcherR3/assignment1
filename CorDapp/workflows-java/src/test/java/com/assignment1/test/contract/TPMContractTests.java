@@ -1,9 +1,8 @@
-package com.assessment1.test.contract;
+package com.assignment1.test.contract;
 
-import com.assessment1.contract.TPMContract;
-import com.assessment1.state.TPMState;
+import com.assignment1.contract.TPMContract;
+import com.assignment1.state.TPMState;
 import com.google.common.collect.ImmutableList;
-import net.corda.core.contracts.UniqueIdentifier;
 import net.corda.core.identity.CordaX500Name;
 import net.corda.testing.core.TestIdentity;
 import net.corda.testing.node.MockServices;
@@ -13,7 +12,7 @@ import static java.util.Arrays.asList;
 import static net.corda.testing.node.NodeTestUtils.ledger;
 
 public class TPMContractTests {
-    static private final MockServices ledgerServices = new MockServices(asList("com.assessment1.contract", "com.assessment1.flow"));
+    static private final MockServices ledgerServices = new MockServices(asList("com.assignment1.contract", "com.assignment1.flow"));
     static private final TestIdentity megaCorp = new TestIdentity(new CordaX500Name("MegaCorp", "London", "GB"));
     static private final TestIdentity miniCorp = new TestIdentity(new CordaX500Name("MiniCorp", "London", "GB"));
 

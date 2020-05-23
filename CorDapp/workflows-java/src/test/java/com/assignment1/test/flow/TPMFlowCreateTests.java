@@ -1,13 +1,10 @@
-package com.assessment1.test.flow;
+package com.assignment1.test.flow;
 
-import com.assessment1.flow.TPMFlowCreate;
-import com.assessment1.flow.TPMFlowMove;
-import com.assessment1.state.TPMState;
+import com.assignment1.flow.TPMFlowCreate;
+import com.assignment1.state.TPMState;
 import com.google.common.collect.ImmutableList;
 import net.corda.core.concurrent.CordaFuture;
-import net.corda.core.contracts.ContractState;
-import net.corda.core.contracts.StateAndRef;
-import net.corda.core.contracts.TransactionState;
+import net.corda.core.contracts.*;
 import net.corda.core.transactions.SignedTransaction;
 import net.corda.testing.node.MockNetwork;
 import net.corda.testing.node.MockNetworkParameters;
@@ -24,7 +21,7 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-public class TPMFlowMoveTests {
+public class TPMFlowCreateTests {
     private MockNetwork network;
     private StartedMockNode a;
     private StartedMockNode b;
@@ -32,13 +29,12 @@ public class TPMFlowMoveTests {
     @Before
     public void setup() {
         network = new MockNetwork(new MockNetworkParameters().withCordappsForAllNodes(ImmutableList.of(
-                TestCordapp.findCordapp("com.assessment1.contract"),
-                TestCordapp.findCordapp("com.assessment1.flow"))));
+                TestCordapp.findCordapp("com.assignment1.contract"),
+                TestCordapp.findCordapp("com.assignment1.flow"))));
         a = network.createPartyNode(null);
         b = network.createPartyNode(null);
         // For real nodes this happens automatically, but we have to manually register the flow for tests.
         for (StartedMockNode node : ImmutableList.of(a, b)) {
-            node.registerInitiatedFlow(TPMFlowMove.Acceptor.class);
             node.registerInitiatedFlow(TPMFlowCreate.Acceptor.class);
         }
         network.runNetwork();
@@ -52,18 +48,9 @@ public class TPMFlowMoveTests {
     @Rule
     public final ExpectedException exception = ExpectedException.none();
 
-    private void createBoard(String gameId) {
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), null, gameId);
-        CordaFuture<SignedTransaction> future = a.startFlow(flow);
-        network.runNetwork();
-    }
-
     @Test
     public void signedTransactionReturnedByTheFlowIsSignedByTheInitiator() throws Exception {
-        createBoard("game123");
-        createBoard("game124");
-        createBoard("game126");
-        TPMFlowMove.Initiator flow = new TPMFlowMove.Initiator( "game123", null, -1, 1);
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), null,"123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 
@@ -73,19 +60,17 @@ public class TPMFlowMoveTests {
 
     @Test
     public void signedTransactionReturnedByTheFlowIsSignedByTheAcceptor() throws Exception {
-        createBoard("game2e");
-        createBoard("game123");
-        TPMFlowMove.Initiator flow = new TPMFlowMove.Initiator("game123", null,1, 2);
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0),null,"123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 
         SignedTransaction signedTx = future.get();
         signedTx.verifySignaturesExcept(a.getInfo().getLegalIdentities().get(0).getOwningKey());
     }
-/*
+
     @Test
     public void flowRecordsATransactionInBothPartiesTransactionStorages() throws Exception {
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), null,"123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
         SignedTransaction signedTx = future.get();
@@ -99,7 +84,7 @@ public class TPMFlowMoveTests {
     @Test
     public void recordedTransactionHasNoInputsAndASingleOutput() throws Exception {
         Integer iouValue = 1;
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), null,"123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
         SignedTransaction signedTx = future.get();
@@ -126,7 +111,7 @@ public class TPMFlowMoveTests {
     @Test
     public void flowRecordsTheCorrectStateInBothPartiesVaults() throws Exception {
         Integer iouValue = 1;
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), "123");
+        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), null,"123");
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
         future.get();
@@ -134,7 +119,6 @@ public class TPMFlowMoveTests {
         // We check the recorded IOU in both vaults.
         for (StartedMockNode node : ImmutableList.of(a, b)) {
             node.transaction(() -> {
-                // QueryCriteria qc = new QueryCriteria.LinearStateQueryCriteria(ImmutableList.of(a,b), null, ImmutableList.of("chickenDinner"));
                 List<StateAndRef<TPMState>> states = node.getServices().getVaultService().queryBy(TPMState.class).getStates();
                 assertEquals(1, states.size());
                 TPMState recordedState = states.get(0).getState().getData();
@@ -151,6 +135,4 @@ public class TPMFlowMoveTests {
             });
         }
     }
-
- */
 }

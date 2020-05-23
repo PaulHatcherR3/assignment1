@@ -1,6 +1,6 @@
-package com.assessment1.state;
+package com.assignment1.state;
 
-import com.assessment1.contract.TPMContract;
+import com.assignment1.contract.TPMContract;
 import net.corda.core.contracts.BelongsToContract;
 import net.corda.core.contracts.LinearState;
 import net.corda.core.contracts.UniqueIdentifier;
@@ -8,7 +8,6 @@ import net.corda.core.identity.AbstractParty;
 import net.corda.core.identity.Party;
 import net.corda.core.serialization.ConstructorForDeserialization;
 import net.corda.core.serialization.CordaSerializable;
-import org.slf4j.ILoggerFactory;
 
 import static net.corda.core.contracts.ContractsDSL.requireThat;
 

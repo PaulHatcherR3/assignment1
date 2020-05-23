@@ -1,6 +1,6 @@
-package com.assessment1.contract;
+package com.assignment1.contract;
 
-import com.assessment1.state.TPMState;
+import com.assignment1.state.TPMState;
 import net.corda.core.contracts.CommandData;
 import net.corda.core.contracts.CommandWithParties;
 import net.corda.core.contracts.Contract;
@@ -25,7 +25,7 @@ import static net.corda.core.contracts.ContractsDSL.requireThat;
  * All contracts must sub-class the [Contract] interface.
  */
 public class TPMContract implements Contract {
-    public static final String ID = "com.assessment1.contract.TPMContract";
+    public static final String ID = "com.assignment1.contract.TPMContract";
 
     /**
      * The verify() function of all the states' contracts must not throw an exception for a transaction to be

@@ -1,4 +1,4 @@
-package com.assessment1;
+package com.assignment1;
 
 import com.google.common.collect.ImmutableList;
 import net.corda.core.concurrent.CordaFuture;
