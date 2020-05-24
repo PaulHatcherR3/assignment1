@@ -1,2 +1,4 @@
 include 'contracts-java'
 include 'workflows-java'
+include 'clients'
+

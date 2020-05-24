@@ -26,7 +26,7 @@ public class TPMState implements LinearState {
 
     @CordaSerializable
     public enum Token {PLAYER1, PLAYER2};
-    private static final int BOARD_WIDTH=3;
+    public static final int BOARD_WIDTH=3;
     private final int player1Tokens;
     private final int player2Tokens;
     private final Token[] board;
@@ -146,6 +146,14 @@ public class TPMState implements LinearState {
         this.moveHint = createHint;
         this.moves = 0;
         this.linearId = new UniqueIdentifier(gameId);
+    }
+
+    public String getGameId() {
+        return getLinearId().getExternalId();
+    }
+
+    public Token getToken(int x, int y) {
+        return getBoard()[y*BOARD_WIDTH + x];
     }
 
     public int getPlayer1Tokens() {
