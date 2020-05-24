@@ -7,13 +7,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import net.corda.core.contracts.Command;
 import net.corda.core.contracts.ContractState;
+import net.corda.core.contracts.StateAndRef;
 import net.corda.core.crypto.SecureHash;
 import net.corda.core.flows.*;
 import net.corda.core.identity.Party;
+import net.corda.core.node.services.vault.QueryCriteria;
 import net.corda.core.transactions.SignedTransaction;
 import net.corda.core.transactions.TransactionBuilder;
 import net.corda.core.utilities.ProgressTracker;
 import net.corda.core.utilities.ProgressTracker.Step;
+
+import java.util.List;
 
 import static net.corda.core.contracts.ContractsDSL.requireThat;
 
@@ -91,6 +95,17 @@ public class TPMFlowCreate {
 
             // Generate an unsigned transaction with an initial board state.
             Party me = getOurIdentity();
+
+            // Query vault to make sure this game does not already exist. gameIds must be unique on me and gameId.
+            QueryCriteria queryCriteria = new QueryCriteria.LinearStateQueryCriteria(ImmutableList.of(me), null, ImmutableList.of(gameId));
+            List<StateAndRef<TPMState>> states = getServiceHub().getVaultService().queryBy(TPMState.class, queryCriteria).getStates();
+
+            // Should be one, should be same parties (we queried for!). Not sure if this is overkill. Could just test and then throw exception?
+            requireThat(require -> {
+                require.using("Game already exists on ledger", states.size() == 0);
+                return null;
+            });
+
             TPMState state = new TPMState(me, otherParty, createHint, gameId);
             final Command<TPMContract.Commands.Create> txCommand = new Command<>(
                     new TPMContract.Commands.Create(),

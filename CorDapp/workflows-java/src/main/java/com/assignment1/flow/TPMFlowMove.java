@@ -91,7 +91,7 @@ public class TPMFlowMove {
 
             // Fetch the current state from the vault. We query using the foreign key for the LinearState on the ledger.
             Party me = getOurIdentity();
-            QueryCriteria queryCriteria = new QueryCriteria.LinearStateQueryCriteria(null, null, ImmutableList.of(gameId));
+            QueryCriteria queryCriteria = new QueryCriteria.LinearStateQueryCriteria(ImmutableList.of(me), null, ImmutableList.of(gameId));
             List<StateAndRef<TPMState>> states = getServiceHub().getVaultService().queryBy(TPMState.class, queryCriteria).getStates();
 
             // Should be one, should be same parties (we queried for!). Not sure if this is overkill. Could just test and then throw exception?
