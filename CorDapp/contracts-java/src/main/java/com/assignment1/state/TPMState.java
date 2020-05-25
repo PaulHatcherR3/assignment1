@@ -426,6 +426,6 @@ public class TPMState implements LinearState {
 
     @Override
     public String toString() {
-        return String.format("TPMState(player1=%s, player2=%s, move=%s)", player1, player2, moves);
+        return String.format("player=%s, player1=%s, player2=%s, gameStatus=%s, move=%s)", player, player1, player2, gameStatus, moves);
     }
 }
