@@ -1,6 +1,7 @@
 package com.assignment1.test.flow;
 
 import com.assignment1.flow.TPMFlowCreate;
+import com.assignment1.state.TPMBoard;
 import com.assignment1.state.TPMState;
 import com.google.common.collect.ImmutableList;
 import net.corda.core.concurrent.CordaFuture;
@@ -96,11 +97,11 @@ public class TPMFlowCreateTests {
             assert (txOutputs.size() == 1);
 
             TPMState recordedState = (TPMState) txOutputs.get(0).getData();
-            assertEquals(3, recordedState.getPlayer1Tokens());
-            assertEquals(3, recordedState.getPlayer2Tokens());
+            assertEquals(3, recordedState.getBoard().getPlayer1Tokens());
+            assertEquals(3, recordedState.getBoard().getPlayer2Tokens());
             assertEquals(0, recordedState.getMoves());
-            TPMState.Token board[] = recordedState.getBoard();
-            for (TPMState.Token t : board) {
+            TPMBoard.Token board[] = recordedState.getBoard().getBoard();
+            for (TPMBoard.Token t : board) {
                 assertNull(t);
             }
             assertEquals(recordedState.getPlayer1(), a.getInfo().getLegalIdentities().get(0));
@@ -122,11 +123,11 @@ public class TPMFlowCreateTests {
                 List<StateAndRef<TPMState>> states = node.getServices().getVaultService().queryBy(TPMState.class).getStates();
                 assertEquals(1, states.size());
                 TPMState recordedState = states.get(0).getState().getData();
-                assertEquals(3, recordedState.getPlayer1Tokens());
-                assertEquals(3, recordedState.getPlayer2Tokens());
+                assertEquals(3, recordedState.getBoard().getPlayer1Tokens());
+                assertEquals(3, recordedState.getBoard().getPlayer2Tokens());
                 assertEquals(0, recordedState.getMoves());
-                TPMState.Token board[] = recordedState.getBoard();
-                for (TPMState.Token t : board) {
+                TPMBoard.Token board[] = recordedState.getBoard().getBoard();
+                for (TPMBoard.Token t : board) {
                     assertNull(t);
                 }
                 assertEquals(recordedState.getPlayer1(), a.getInfo().getLegalIdentities().get(0));

@@ -2,6 +2,7 @@ package com.assignment1.server;
 
 import com.assignment1.flow.TPMFlowCreate;
 import com.assignment1.flow.TPMFlowMove;
+import com.assignment1.state.TPMBoard;
 import com.assignment1.state.TPMState;
 import com.google.common.collect.ImmutableList;
 import net.corda.client.rpc.CordaRPCClient;
@@ -162,17 +163,17 @@ public class JavaClientRpc {
                 }
 
                 // Enter main game loop making moves. We need to work out if we're next or not.
-                while (TPMState.GameStatus.FINISHED != state.getGameStatus()) {
+                while (TPMBoard.GameStatus.FINISHED != state.getGameStatus()) {
                     // TPMState.player is the player who made the last move. However in initial state they created the board.
-                    if ((state.getGameStatus() == TPMState.GameStatus.INITIAL) && me.equals(state.getPlayer1()) ||
-                       ((state.getGameStatus() != TPMState.GameStatus.INITIAL) && !me.equals(state.getPlayer()))) {
+                    if ((state.getGameStatus() == TPMBoard.GameStatus.INITIAL) && me.equals(state.getPlayer1()) ||
+                       ((state.getGameStatus() != TPMBoard.GameStatus.INITIAL) && !me.equals(state.getPlayer()))) {
 
                         // Our move.
                         logger.info(String.format("Next move '%s', you're token '%c'", me, state.getPlayer1().equals(me) ? 'O' : 'X'));
 
                         int src = -1;
                         int dst = -1;
-                        if (state.getGameStatus() != TPMState.GameStatus.MOVING) {
+                        if (state.getGameStatus() != TPMBoard.GameStatus.MOVING) {
                             System.out.print("Enter placement cell and optional comment : ");
                             dst = getInt();
                         } else {
@@ -258,7 +259,7 @@ public class JavaClientRpc {
 
         private void printBoard(TPMState state) {
             System.out.println("   [0] [1] [2]");
-            for (int i = 0; i < TPMState.BOARD_WIDTH; ++i) {
+            for (int i = 0; i < TPMBoard.BOARD_WIDTH; ++i) {
                 if (1 == i) {
                     System.out.println("    | \\ | / |");
                     System.out.print("[3] ");
@@ -268,12 +269,12 @@ public class JavaClientRpc {
                 } else {
                     System.out.print("    ");
                 }
-                for (int j = 0; j < TPMState.BOARD_WIDTH; ++j) {
+                for (int j = 0; j < TPMBoard.BOARD_WIDTH; ++j) {
                     if (j > 0) {
                         System.out.print(" - ");
                     }
-                    TPMState.Token t = state.getToken(j, i);
-                    System.out.print(null == t ? ' ' : (TPMState.Token.PLAYER1 == t ? 'O' : 'X'));
+                    TPMBoard.Token t = state.getBoard().getToken(j, i);
+                    System.out.print(null == t ? ' ' : (TPMBoard.Token.PLAYER1 == t ? 'O' : 'X'));
                 }
                 if (1 == i) {
                     System.out.println(" [5]");
