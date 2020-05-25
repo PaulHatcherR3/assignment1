@@ -23,6 +23,8 @@ import rx.observables.BlockingObservable;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Demonstration of using the CordaRPCClient to connect to a Corda Node.
@@ -51,6 +53,9 @@ public class JavaClientRpc {
         private final String rpcPassword;
         private final String gameId;
         private TPMState stateLast;
+        private Semaphore semaphore;
+        boolean error;
+        Scanner scanner;
 
         JavaClientRpcClass(
                 NetworkHostAndPort networkHostAndPort,
@@ -61,6 +66,9 @@ public class JavaClientRpc {
             this.rpcUsername = rpcUsername;
             this.rpcPassword = rpcPassword;
             this.gameId = gameId;
+            this.semaphore = new Semaphore(0);
+            this.error = false;
+            this.scanner = new Scanner(System.in);
         }
 
         public void run() {
@@ -99,7 +107,9 @@ public class JavaClientRpc {
                 // If there are no states the game does not exist, ask to create.
                 if (!snapshot.getStates().isEmpty()) {
                     // Show the current state. State could be set here.
-                    snapshot.getStates().forEach(update -> {actionToPerform(update);});
+                    snapshot.getStates().forEach(update -> {
+                        actionToPerform(update);
+                    });
                 } else {
                     final String msg = String.format("Game '%s' not found, create? [y/n] : ", gameId);
                     logger.info(msg);
@@ -114,7 +124,7 @@ public class JavaClientRpc {
                         if (opponents.isEmpty()) {
                             final String msge = String.format("Failed to find opponent '%s'", opponent);
                             logger.error(msge);
-                            throw new IllegalArgumentException(msge);
+                            return;
                         }
 
                         final Party party = opponents.iterator().next();
@@ -122,9 +132,19 @@ public class JavaClientRpc {
                         // Create game and wait for completion.
                         logger.info(String.format("Creating game '%s' with opponent '%s'", gameId, party));
                         Observable<String> ob = proxy.startTrackedFlowDynamic(TPMFlowCreate.Initiator.class, party, "JavaClientRpc", gameId).getProgress();
+
+                        // TODO There must be a better way of detecting an error occurred inside blocking subscription.
+                        error = false;
                         ob.toBlocking().subscribe(progress -> {
                             logger.info(progress);
+                        }, err -> {
+                            logger.error(err.getMessage());
+                            error = true;
                         });
+
+                        // Just get out the bus.
+                        if (error) {return;}
+
                     } else {
                         // finally will shut everything down.
                         return;
@@ -132,52 +152,63 @@ public class JavaClientRpc {
                     // If we have a separate subscription for the state, in addition to the display, then could block here and wait.
                 }
 
-                // Enter main game loop making moves. We need to work out if we're next or not.
+                // Wait for update.
+                semaphore.tryAcquire(10, TimeUnit.SECONDS);
 
-                // Get current state, hoping that any changes have come through. Not sure how to sync on observable ??
+                // TODO I don't like this at all. Must be a more elegant way.
                 TPMState state = null;
                 synchronized (this) {
                     state = stateLast;
                 }
 
-                // TPMState.player is the player who made the last move. However in initial state they created the board.
-                if ((state.getGameStatus() == TPMState.GameStatus.INITIAL) && me.equals(state.getPlayer1()) ||
-                    ((state.getGameStatus() != TPMState.GameStatus.INITIAL)&& !me.equals(state.getPlayer()))) {
-                    // Our move.
-                    logger.info(String.format("Next move '%s'", me));
+                // Enter main game loop making moves. We need to work out if we're next or not.
+                while (TPMState.GameStatus.FINISHED != state.getGameStatus()) {
+                    // TPMState.player is the player who made the last move. However in initial state they created the board.
+                    if ((state.getGameStatus() == TPMState.GameStatus.INITIAL) && me.equals(state.getPlayer1()) ||
+                       ((state.getGameStatus() != TPMState.GameStatus.INITIAL) && !me.equals(state.getPlayer()))) {
 
-                    int src=-1;
-                    if (state.getGameStatus() == TPMState.GameStatus.MOVING) {
-                        System.out.print("Enter from cell :");
-                        src = getInt();
+                        // Our move.
+                        logger.info(String.format("Next move '%s', you're token '%c'", me, state.getPlayer1().equals(me) ? 'O' : 'X'));
+
+                        int src = -1;
+                        int dst = -1;
+                        if (state.getGameStatus() != TPMState.GameStatus.MOVING) {
+                            System.out.print("Enter placement cell and optional comment : ");
+                            dst = getInt();
+                        } else {
+                            System.out.print("Enter from dest cell and optional comment : ");
+                            src = getInt();
+                            dst = getInt();
+                        }
+                        final String hint = getString();
+
+                        // Now try a move ! Block until move has completed.
+                        Observable<String> ob = proxy.startTrackedFlowDynamic(TPMFlowMove.Initiator.class, gameId, hint, src, dst).getProgress();
+
+                        error = false;
+                        ob.toBlocking().subscribe(progress -> {
+                            logger.info(progress);
+                        }, err -> {
+                            logger.error(err.getMessage());
+                            error=true;
+                        });
+
+                        if (error) {continue;}
+
+                    } else {
+                        logger.info(String.format("Waiting for move ..."));
                     }
-                    System.out.print("Enter dest cell :");
-                    final int dst = getInt();
-                    System.out.print("Enter Comment :");
-                    final String hint = getString();
 
-                    // Now try a move ! Block until move has completed.
-                    Observable<String> ob = proxy.startTrackedFlowDynamic(TPMFlowMove.Initiator.class, gameId, hint, src, dst).getProgress();
-                    ob.toBlocking().subscribe(progress -> {
-                        logger.info(progress);
-                    });
+                    // Wait for state to change.
+                    semaphore.tryAcquire(10, TimeUnit.SECONDS);
 
-                } else {
-                    logger.info(String.format("Waiting for move"));
+                    // TODO I don't like this at all.
+                    synchronized (this) {
+                        state = stateLast;
+                    }
                 }
-
-                // Get blocking observable to wait for changes.
-                // BlockingObservable<Vault.Update<TPMState>> updatesBlocking = updates.toBlocking();
-
-                //this returns an observable on TPMState
-                // Observable<Vault.Update<TPMState>> updates = dataFeed.getUpdates();
-
-                //updates.subscribe(update -> update.getProduced().forEach(JavaClientRpc::actionToPerform));
-
-                //perform certain action for each update to TPMState
-                // updates.toBlocking().subscribe(update -> update.getProduced().forEach(JavaClientRpc::actionToPerform));
-
-                // proxy.shutdown();
+            } catch (InterruptedException e) {
+                logger.error(e.toString());
             } finally {
                 // Not sure how to gracefully close. Seems to cause issues calling this.
                 // It's not enough to simply fall off the end here as that blocks.
@@ -191,12 +222,10 @@ public class JavaClientRpc {
         }
 
         private String getString() {
-            Scanner scanner = new Scanner(System.in);
-            return scanner.next();
+            return scanner.nextLine();
         }
 
         private int getInt() {
-            Scanner scanner = new Scanner(System.in);
             while (scanner.hasNext()) {
                 if (scanner.hasNextInt()) {
                     return scanner.nextInt();
@@ -212,13 +241,19 @@ public class JavaClientRpc {
          */
         private void actionToPerform(StateAndRef<TPMState> stateRef) {
             TPMState state = stateRef.getState().getData();
+
             // Yuck !
             synchronized (this) {
                 stateLast = state;
             }
+
             logger.info(String.format("New state received : %s", state));
             System.out.println(String.format("Game : %s, State: %s, Moves: %s, Hint: '%s'", state.getGameId(), state.getGameStatus(), state.getMoves(), state.getMoveHint()));
             printBoard(state);
+
+            // Release semaphore after we've output the board.
+            semaphore.tryAcquire();
+            semaphore.release();
         }
 
         private void printBoard(TPMState state) {
