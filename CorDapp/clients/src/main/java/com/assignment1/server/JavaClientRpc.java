@@ -20,6 +20,8 @@ import rx.Observable;
 import rx.Subscription;
 import rx.observables.BlockingObservable;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
@@ -164,10 +166,16 @@ public class JavaClientRpc {
                 }
 
                 // Enter main game loop making moves. We need to work out if we're next or not.
+                int waitingIndex = 0;
+                Instant tStart = Instant.now();
+                final char[] ticker = new String("|/-\\").toCharArray();
                 while (TPMState.GameStatus.FINISHED != state.getGameStatus()) {
                     // TPMState.player is the player who made the last move. However in initial state they created the board.
                     if ((state.getGameStatus() == TPMState.GameStatus.INITIAL) && me.equals(state.getPlayer1()) ||
                        ((state.getGameStatus() != TPMState.GameStatus.INITIAL) && !me.equals(state.getPlayer()))) {
+
+                        System.out.println();
+                        logger.info(String.format("Last move took %ds", Duration.between(tStart, Instant.now()).getSeconds()));
 
                         // Our move.
                         logger.info(String.format("Next move '%s', you're token '%c'", me, state.getPlayer1().equals(me) ? 'O' : 'X'));
@@ -197,12 +205,20 @@ public class JavaClientRpc {
 
                         if (error) {continue;}
 
+                        // Start the timer.
+                        tStart = Instant.now();
+                        waitingIndex = 0;
+
                     } else {
-                        logger.info(String.format("Waiting for move ..."));
+                        if (0 == waitingIndex) {
+                            logger.info(String.format("Waiting for move ..."));
+                            System.out.print(String.format("      "));
+                        }
+                        System.out.print(String.format("\b\b\b\b\b\b%3ds %c", Duration.between(tStart, Instant.now()).getSeconds(), ticker[(++waitingIndex) % 4]));
                     }
 
                     // Wait for state to change.
-                    if (!semaphore.tryAcquire(10, TimeUnit.SECONDS) ){
+                    if (!semaphore.tryAcquire(1, TimeUnit.SECONDS) ){
                         logger.error("Semaphore timed out waiting for state change");
                     }
 
@@ -211,7 +227,17 @@ public class JavaClientRpc {
                         state = stateLast;
                     }
                 }
-            } catch (InterruptedException e) {
+
+                if (TPMState.GameStatus.FINISHED == state.getGameStatus()) {
+                    if (me.equals(state.getPlayer())) {
+                        logger.info("* Congratulations you won, go straight to Corda Enterprise *");
+                    } else {
+                        logger.info("! Commiserations, you lost, better get back to signing some cordapps !");
+                    }
+                }
+
+
+                } catch (InterruptedException e) {
                 logger.error(e.toString());
             } finally {
                 // Not sure how to gracefully close. Seems to cause issues calling this.
