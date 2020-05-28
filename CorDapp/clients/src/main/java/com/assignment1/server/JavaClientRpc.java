@@ -218,9 +218,7 @@ public class JavaClientRpc {
                     }
 
                     // Wait for state to change.
-                    if (!semaphore.tryAcquire(1, TimeUnit.SECONDS) ){
-                        logger.error("Semaphore timed out waiting for state change");
-                    }
+                    semaphore.tryAcquire(1, TimeUnit.SECONDS);
 
                     // TODO I don't like this at all.
                     synchronized (this) {
