@@ -36,13 +36,13 @@ public class JavaClientRpc {
     public static void main(String[] args) {
         //Get the node address to connect to, rpc username , rpc password via command line
         if (args.length != 4) {
-            throw new IllegalArgumentException("Usage: Client <node address> <gameId> <rpc username> <rpc password>");
+            throw new IllegalArgumentException("Usage: Client <node address> <rpc username> <rpc password> <gameId>");
         }
 
         NetworkHostAndPort networkHostAndPort = NetworkHostAndPort.parse(args[0]);
-        String rpcUsername = args[2];
-        String rpcPassword = args[3];
-        String gameId = args[1];
+        String rpcUsername = args[1];
+        String rpcPassword = args[2];
+        String gameId = args[3];
 
         new JavaClientRpcClass(networkHostAndPort, rpcUsername, rpcPassword, gameId).run();
     }
@@ -155,7 +155,9 @@ public class JavaClientRpc {
                 }
 
                 // Wait for update.
-                semaphore.tryAcquire(10, TimeUnit.SECONDS);
+                if (!semaphore.tryAcquire(10, TimeUnit.SECONDS) ) {
+                    logger.error("Semaphore timed out waiting for state change");
+                }
 
                 // TODO I don't like this at all. Must be a more elegant way.
                 TPMState state = null;
@@ -216,7 +218,9 @@ public class JavaClientRpc {
                     }
 
                     // Wait for state to change.
-                    semaphore.tryAcquire(1, TimeUnit.SECONDS);
+                    if (!semaphore.tryAcquire(1, TimeUnit.SECONDS) ){
+                        logger.error("Semaphore timed out waiting for state change");
+                    }
 
                     // TODO I don't like this at all.
                     synchronized (this) {
@@ -268,7 +272,7 @@ public class JavaClientRpc {
         private void actionToPerform(StateAndRef<TPMState> stateRef) {
             TPMState state = stateRef.getState().getData();
 
-            // Yuck !
+            // TODO Yuck !
             synchronized (this) {
                 stateLast = state;
             }

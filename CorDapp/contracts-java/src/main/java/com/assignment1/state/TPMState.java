@@ -208,7 +208,7 @@ public class TPMState implements LinearState {
         encodeAddress(encodeAddress(encodeAddress(0, 2, 0), 5, 1), 8,2),
         encodeAddress(encodeAddress(encodeAddress(0, 2, 0), 4, 1), 6,2),
         encodeAddress(encodeAddress(encodeAddress(0, 3, 0), 4, 1), 5,2),
-        encodeAddress(encodeAddress(encodeAddress(0, 4, 0), 5, 1), 6,2)
+        encodeAddress(encodeAddress(encodeAddress(0, 6, 0), 7, 1), 8,2)
     ));
 
     // Return true if the game is over, there is a completed line.
