@@ -110,16 +110,21 @@ Game : gameBerty, State: FINISHED, Moves: 13, Hint: ' Never mind my cheese, I wi
 [INFO ] 10:28:46.273 [main] JavaClientRpc.lambda$run$5 - Done
 ```
 
-Player `'O'` wins the game having held their nerve after an enquiry about their cheese.
+Player `'O'` wins the game moving `3 0` having held their nerve after a provocative inquiry about the location of their cheese.
+
+## BUGS
+
+Plenty ...
+* I've seen bottom row mills (rows of three) not win the game. Better test coverage of winning state required.
+* Sometimes I think the Java input scanner is not being used correctly. So moves seem sometimes not to work. If this happens just kill and restart the client.
 
 ## TODO
 
+* Better understand how to use Observables properly. The client could be improved upon somewhat.
 * A game engine in the client for automated play.
 * Restful interface for web clients.
 * Better error messages.
-* Testing, not enough tests on the state or flow. I can think of loads more to add :)
+* Testing, not enough tests on the state or flow. Coverage is not great, I can think of loads more to add :)
 
 Paul
 paul.hatcher@r3.com
-
-## Sample Client Output
