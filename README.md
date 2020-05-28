@@ -16,7 +16,7 @@ Following instructions assume you have JDK 1.8 installed. Also you've cloned thi
 cd to CorDapp then type `./gradlew build` will build the flows, client and run some tests.
 
 ## Running Corda
-cd to CorDapp type `./gradlew deployNodes` to deploy nodes locally. This will generate node configs and files and copy them into workflows-java/build/nodes. cd into workflows-java/build/nodes. Install at least 8GB of RAM :) then type ./runnodes, this should fire up a notary, and three nodes PartyA, PartyB and PartyC. in the shell you can type `flow list` to see the installed flows. The game flows com.assignment1.TPMFlow should be there.
+cd to CorDapp type `./gradlew deployNodes` to deploy nodes locally. This will generate node configs and files and copy them into workflows-java/build/nodes. cd into workflows-java/build/nodes. Install at least 16GB of RAM :) then type `./runnodes`, this should start a notary, and three nodes PartyA, PartyB and PartyC. in the shell you can type `flow list` to see the installed flows. The game flows com.assignment1.TPMFlow should be there.
 
 ## Building the client
 
