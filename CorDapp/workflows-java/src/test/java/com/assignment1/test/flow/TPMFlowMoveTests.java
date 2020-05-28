@@ -1,7 +1,6 @@
 package com.assignment1.test.flow;
 
-import com.assignment1.flow.TPMFlowCreate;
-import com.assignment1.flow.TPMFlowMove;
+import com.assignment1.flow.TPMFlow;
 import com.google.common.collect.ImmutableList;
 import net.corda.core.concurrent.CordaFuture;
 import net.corda.core.transactions.SignedTransaction;
@@ -32,8 +31,8 @@ public class TPMFlowMoveTests {
         b = network.createPartyNode(null);
         // For real nodes this happens automatically, but we have to manually register the flow for tests.
         for (StartedMockNode node : ImmutableList.of(a, b)) {
-            node.registerInitiatedFlow(TPMFlowMove.Acceptor.class);
-            node.registerInitiatedFlow(TPMFlowCreate.Acceptor.class);
+            node.registerInitiatedFlow(TPMFlow.MoveAcceptor.class);
+            node.registerInitiatedFlow(TPMFlow.CreateAcceptor.class);
         }
         network.runNetwork();
     }
@@ -47,7 +46,7 @@ public class TPMFlowMoveTests {
     public final ExpectedException exception = ExpectedException.none();
 
     private void createBoard(String gameId) {
-        TPMFlowCreate.Initiator flow = new TPMFlowCreate.Initiator(b.getInfo().getLegalIdentities().get(0), null, gameId);
+        TPMFlow.Create flow = new TPMFlow.Create(b.getInfo().getLegalIdentities().get(0), null, gameId);
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
     }
@@ -57,7 +56,7 @@ public class TPMFlowMoveTests {
         createBoard("game123");
         createBoard("game124");
         createBoard("game126");
-        TPMFlowMove.Initiator flow = new TPMFlowMove.Initiator( "game123", null, -1, 1);
+        TPMFlow.Move flow = new TPMFlow.Move( "game123", null, -1, 1);
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 
@@ -69,7 +68,7 @@ public class TPMFlowMoveTests {
     public void signedTransactionReturnedByTheFlowIsSignedByTheAcceptor() throws Exception {
         createBoard("game2e");
         createBoard("game123");
-        TPMFlowMove.Initiator flow = new TPMFlowMove.Initiator("game123", null,1, 2);
+        TPMFlow.Move flow = new TPMFlow.Move("game123", null,1, 2);
         CordaFuture<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
 
