@@ -1,7 +1,6 @@
 package com.assignment1.server;
 
-import com.assignment1.flow.TPMFlowCreate;
-import com.assignment1.flow.TPMFlowMove;
+import com.assignment1.flow.TPMFlow;
 import com.assignment1.state.TPMBoard;
 import com.assignment1.state.TPMState;
 import com.google.common.collect.ImmutableList;
@@ -132,7 +131,7 @@ public class JavaClientRpc {
 
                         // Create game and wait for completion.
                         logger.info(String.format("Creating game '%s' with opponent '%s'", gameId, party));
-                        Observable<String> ob = proxy.startTrackedFlowDynamic(TPMFlowCreate.Initiator.class, party, "JavaClientRpc", gameId).getProgress();
+                        Observable<String> ob = proxy.startTrackedFlowDynamic(TPMFlow.Create.class, party, "JavaClientRpc", gameId).getProgress();
 
                         // TODO There must be a better way of detecting an error occurred inside blocking subscription.
                         error = false;
@@ -184,7 +183,7 @@ public class JavaClientRpc {
                         final String hint = getString();
 
                         // Now try a move ! Block until move has completed.
-                        Observable<String> ob = proxy.startTrackedFlowDynamic(TPMFlowMove.Initiator.class, gameId, hint, src, dst).getProgress();
+                        Observable<String> ob = proxy.startTrackedFlowDynamic(TPMFlow.Move.class, gameId, hint, src, dst).getProgress();
 
                         error = false;
                         ob.toBlocking().subscribe(progress -> {

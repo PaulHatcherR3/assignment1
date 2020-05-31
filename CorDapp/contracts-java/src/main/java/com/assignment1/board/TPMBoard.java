@@ -1,4 +1,4 @@
-package com.assignment1.state;
+package com.assignment1.board;
 
 import net.corda.core.contracts.UniqueIdentifier;
 import net.corda.core.identity.Party;
@@ -13,9 +13,8 @@ import java.util.Objects;
 public class TPMBoard {
 
     @CordaSerializable
-    public enum Token {PLAYER1, PLAYER2}
+    public enum Token {PLAYER1, PLAYER2};
 
-    ;
     public static final int BOARD_WIDTH = 3;
     private final int player1Tokens;
     private final int player2Tokens;
@@ -23,8 +22,6 @@ public class TPMBoard {
 
     @CordaSerializable
     public enum GameStatus {INITIAL, PLACEMENT, MOVING, FINISHED}
-
-    ;
     private GameStatus gameStatus;
 
     @ConstructorForDeserialization
@@ -41,26 +38,10 @@ public class TPMBoard {
     private TPMBoard(int player1Tokens,
                      int player2Tokens,
                      Token[] board) {
-        // Maybe call above constructor??
-        this.player1Tokens = Math.max(Math.min(player1Tokens, BOARD_WIDTH), 0);
-        this.player2Tokens = Math.max(Math.min(player2Tokens, BOARD_WIDTH), 0);
-        this.board = board;
-
-        // We work out the state from the above fields.
-        // The state field stops clients implementing this logic repeatedly.
-        if ((BOARD_WIDTH == player1Tokens) && (BOARD_WIDTH == player2Tokens)) {
-            this.gameStatus = GameStatus.INITIAL;
-        } else if ((0 == player1Tokens) && (0 == player2Tokens)) {
-            if (gameOver(Token.PLAYER1)) {
-                this.gameStatus = gameStatus.FINISHED;
-            } else if (gameOver(Token.PLAYER2)) {
-                this.gameStatus = gameStatus.FINISHED;
-            } else {
-                this.gameStatus = gameStatus.MOVING;
-            }
-        } else {
-            this.gameStatus = gameStatus.PLACEMENT;
-        }
+        this(player1Tokens, player2Tokens, board,
+            ((BOARD_WIDTH == player1Tokens) && (BOARD_WIDTH == player2Tokens)) ? GameStatus.INITIAL :
+            (((0 == player1Tokens) && (0 == player2Tokens)) ? (TPMBoard.gameOver(board) ? GameStatus.FINISHED : GameStatus.MOVING) :
+            GameStatus.PLACEMENT) );
     }
 
     public TPMBoard() {
@@ -107,20 +88,32 @@ public class TPMBoard {
             encodeAddress(encodeAddress(encodeAddress(0, 4, 0), 5, 1), 6, 2)
     ));
 
-    // Return true if the game is over, there is a completed line.
-    public boolean gameOver(Token pt) {
-        int a = 0;
+    private static boolean gameOver(Token[] board, Token pt) {
+        int ea = 0;
         int ii = 0;
-        for (int i = 0; i < board.length; ++i) {
-            if (pt.equals(board[i])) {
-                a = encodeAddress(a, i, ii++);
+        int a = 0;
+        // Encode board state for token and lookup in winningAddresses.
+        for (Token bt : board) {
+            if (pt.equals(bt)) {
+                ea = encodeAddress(ea, a, ii++);
             }
+            a++;
         }
-        return winningAddresses.contains(a);
+        return winningAddresses.contains(ea);
     }
 
+    public static boolean gameOver(Token[] board) {
+        return gameOver(board, Token.PLAYER1) || gameOver(board, Token.PLAYER2);
+    }
+
+    // Return true if the game is over, there is a mill for the given player.
+    public boolean gameOver(Token pt) {
+        return gameOver(board, pt);
+    }
+
+    // Return true if either player has a mill.
     public boolean gameOver() {
-        return gameOver(Token.PLAYER1) || gameOver(Token.PLAYER2);
+        return gameOver(board);
     }
 
     // Legal moves encoded as src -> dst.
@@ -165,7 +158,7 @@ public class TPMBoard {
 
     public boolean checkInvariants(Token tp) {
         // Sum of tokens in counters and on board should equal BOARD_WIDTH for each player.
-        int pt = Token.PLAYER1 == tp ? getPlayer1Tokens() : (Token.PLAYER2 == tp ? getPlayer2Tokens() : 0);
+        int pt = Token.PLAYER1 == tp ? getPlayer1Tokens() : (Token.PLAYER2 == tp ? getPlayer2Tokens() : BOARD_WIDTH);
         for (Token t : getBoard()) {
             if (null == t) {
                 ;
@@ -173,7 +166,7 @@ public class TPMBoard {
                 ++pt;
             }
         }
-        return BOARD_WIDTH == pt;
+        return (BOARD_WIDTH == pt) && (board.length == BOARD_WIDTH*BOARD_WIDTH);
     }
 
     public static class TPMMove {
@@ -181,16 +174,12 @@ public class TPMBoard {
         private final int dst;
         private final Token srcToken;
         private final Token dstToken;
-        private boolean error;
-        private String errorHint;
 
-        public TPMMove(int src, int dst, Token srcToken, Token dstToken, boolean error, String errorHint) {
+        public TPMMove(int src, int dst, Token srcToken, Token dstToken) {
             this.src = src;
             this.dst = dst;
             this.srcToken = srcToken;
             this.dstToken = dstToken;
-            this.error = error;
-            this.errorHint = errorHint;
         }
 
         public int getSrc() {
@@ -208,17 +197,10 @@ public class TPMBoard {
         public Token getDstToken() {
             return dstToken;
         }
-
-        public String getErrorHint() {
-            return errorHint;
-        }
-
-        boolean getError() {
-            return error;
-        }
     }
 
-    public TPMMove getMove(TPMBoard boardNext) {
+
+    public TPMMove getMove(TPMBoard boardNext) throws IllegalArgumentException {
 
         // Work out given another board what has moved, only a single move allowed.
         Token srcToken = null;
@@ -236,28 +218,23 @@ public class TPMBoard {
             } else if (null == srcTokenTmp) {
                 // We've found a move to. Should always find one.
                 if (null != dstToken) {
-                    error = true;
-                    errorHint = "Only one token move to allowed";
-                    break;
+                    throw new IllegalArgumentException("Only one token move to allowed");
                 }
                 dstToken = dstTokenTmp;
                 dst = i;
             } else if (null == dstTokenTmp) {
                 // We've found a move from. Should find at most one.
                 if (null != srcToken) {
-                    error = true;
-                    errorHint = "Only one token move from allowed";
-                    break;
+                    throw new IllegalArgumentException("Only one token move from allowed");
                 }
                 srcToken = srcTokenTmp;
                 src = i;
             } else {
                 // Only end up here is token has been flipped.
-                error = true;
-                errorHint = "Tokens have been swapped";
+                throw new IllegalArgumentException("Tokens have been swapped");
             }
         }
-        return new TPMMove(src, dst, srcToken, dstToken, error, errorHint);
+        return new TPMMove(src, dst, srcToken, dstToken);
     }
 
     // We also need to transition a state given a move. The move specifies, source, dest and player.

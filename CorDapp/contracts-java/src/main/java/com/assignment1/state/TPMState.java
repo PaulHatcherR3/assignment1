@@ -1,5 +1,6 @@
 package com.assignment1.state;
 
+import com.assignment1.board.TPMBoard;
 import com.assignment1.contract.TPMContract;
 import net.corda.core.contracts.BelongsToContract;
 import net.corda.core.contracts.LinearState;
@@ -7,6 +8,7 @@ import net.corda.core.contracts.UniqueIdentifier;
 import net.corda.core.identity.AbstractParty;
 import net.corda.core.identity.Party;
 import net.corda.core.serialization.ConstructorForDeserialization;
+import net.corda.core.serialization.CordaSerializable;
 
 import static net.corda.core.contracts.ContractsDSL.requireThat;
 
@@ -18,7 +20,7 @@ import java.util.List;
  *
  * A state must implement [ContractState] or one of its descendants.
  */
-@BelongsToContract(TPMContract.class)
+@CordaSerializable
 public class TPMState implements LinearState {
 
     private final TPMBoard board;
@@ -187,11 +189,6 @@ public class TPMState implements LinearState {
 
             TPMBoard.TPMMove move = getBoard().getMove(stateNew.getBoard());
 
-            // Check that the move was valid.
-            if (move.getError()) {
-                require.using(move.getErrorHint(), false);
-            }
-            
             // Must have moved something.
             require.using("No destination move found", null != move.getDstToken());
 

@@ -1,7 +1,7 @@
 package com.assignment1.test.flow;
 
 import com.assignment1.flow.TPMFlow;
-import com.assignment1.state.TPMBoard;
+import com.assignment1.board.TPMBoard;
 import com.assignment1.state.TPMState;
 import com.google.common.collect.ImmutableList;
 import net.corda.core.concurrent.CordaFuture;
