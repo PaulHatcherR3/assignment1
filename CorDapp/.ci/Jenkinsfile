@@ -3,7 +3,7 @@ pipeline {
     dockerfile {
       // label 'k8s' -- where to run the image.
       additionalBuildArgs "--build-arg USER=tester"
-      filename '.ci/Dockerfile'
+      filename 'CorDapp/.ci/Dockerfile'
     }
   }
 
