@@ -1,0 +1,28 @@
+pipeline {
+  agent {
+    dockerfile {
+      // label 'k8s' -- where to run the image.
+      additionalBuildArgs "--build-arg USER=tester"
+      filename '.ci/Dockerfile'
+    }
+  }
+
+  options {
+      timestamps()
+      timeout(time: 1, unit: 'HOURS')
+  }
+
+  stages {
+    stage('Compile') {
+      steps {
+        echo 'compile'
+      }
+    }
+  }
+
+  post {
+    cleanup {
+      deleteDir()
+    }
+  }
+}
