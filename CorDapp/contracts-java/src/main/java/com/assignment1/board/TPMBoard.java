@@ -264,4 +264,7 @@ public class TPMBoard {
 
         return new TPMBoard(player1TokensNew, player2TokensNew, boardNew);
     }
+
+    // Evaluate board score for player.
+
 }
