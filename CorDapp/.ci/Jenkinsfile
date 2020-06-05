@@ -13,9 +13,14 @@ pipeline {
   }
 
   stages {
-    stage('Compile') {
+    stage('JDK 8 Compile') {
         steps {
             sh "cd CorDapp && ./gradlew --no-daemon -Pcompilation.allWarningsAsErrors=true -Ptests.failFast=false -Ptests.ignoreFailures=true clean assemble"
+        }
+    }
+    stage('JDK 8 Test') {
+        steps {
+            sh "cd CorDapp && ./gradlew --no-daemon -Pcompilation.allWarningsAsErrors=true -Ptests.failFast=false -Ptests.ignoreFailures=true test"
         }
     }
   }
