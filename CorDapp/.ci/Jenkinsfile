@@ -14,9 +14,9 @@ pipeline {
 
   stages {
     stage('Compile') {
-      steps {
-        echo 'compile'
-      }
+        steps {
+            sh "cd CorDapp && ./gradlew --no-daemon -Pcompilation.allWarningsAsErrors=true -Ptests.failFast=false -Ptests.ignoreFailures=true clean compile"
+        }
     }
   }
 
