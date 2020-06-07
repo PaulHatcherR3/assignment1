@@ -2,7 +2,7 @@ pipeline {
   agent {
     dockerfile {
       // label 'k8s' -- where to run the image.
-      additionalBuildArgs "--build-arg USER=tester"
+      additionalBuildArgs "--build-arg USER=tester --build-arg UID=$(id -u) --build-arg GID=$(id -g)"
       filename 'CorDapp/.ci/Dockerfile'
     }
   }
